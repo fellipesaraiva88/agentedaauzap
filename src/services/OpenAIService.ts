@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { BufferWindowMemory } from 'langchain/memory';
 import { ChatOpenAI } from '@langchain/openai';
-import { ConversationChain } from 'langchain/chains';
+import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
 
 /**
  * Interface para histórico de conversação
@@ -580,37 +580,45 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
       // Pega memória LangChain para este chat
       const memory = this.getOrCreateMemory(chatId);
 
-      // Monta prompt com contexto comportamental
-      let fullPrompt = this.SYSTEM_PROMPT;
+      // Monta prompt do sistema com contexto comportamental
+      let systemPrompt = this.SYSTEM_PROMPT;
       if (behavioralContext) {
         const ctx = this.buildContextualPrompt(behavioralContext);
         if (ctx) {
-          fullPrompt += '\n\n' + ctx;
+          systemPrompt += '\n\n' + ctx;
         }
       }
 
-      // Cria chain de conversação com memória
-      const chain = new ConversationChain({
-        llm: this.langchainModel,
-        memory: memory,
-        verbose: false,
-      });
+      // Carrega histórico da memória
+      const memoryVariables = await memory.loadMemoryVariables({});
+      const chatHistory = memoryVariables.chat_history || [];
 
       console.log(`🤖 Gerando resposta para: "${userMessage.substring(0, 50)}..."`);
-      console.log(`💾 Memória tem ${(await memory.loadMemoryVariables({})).chat_history?.length || 0} mensagens`);
+      console.log(`💾 Memória tem ${chatHistory.length} mensagens`);
 
-      // Envia mensagem completa (system prompt + contexto + user message)
-      const response = await chain.call({
-        input: `${fullPrompt}\n\nCliente: ${userMessage}\n\nMarina:`,
-      });
+      // Monta mensagens: system + histórico + nova mensagem do usuário
+      const messages: any[] = [
+        new SystemMessage(systemPrompt),
+        ...chatHistory,
+        new HumanMessage(userMessage),
+      ];
 
-      const finalResponse = response.response || 'Desculpa, não consegui processar isso. Pode repetir? 😅';
+      // Chama modelo com histórico completo
+      const response = await this.langchainModel.invoke(messages);
+      const finalResponse = response.content.toString() || 'Desculpa, não consegui processar isso. Pode repetir? 😅';
+
+      // Salva na memória
+      await memory.saveContext(
+        { input: userMessage },
+        { output: finalResponse }
+      );
 
       console.log(`✅ Resposta gerada: "${finalResponse.substring(0, 50)}..."`);
 
       return finalResponse;
     } catch (error: any) {
       console.error('❌ Erro ao gerar resposta:', error.message);
+      console.error('Stack:', error.stack);
 
       const fallbackResponses = [
         'Opa, deu um bug aqui 😅 Pode repetir?',
