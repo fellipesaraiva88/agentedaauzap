@@ -9,6 +9,7 @@ import { HumanImperfectionEngine } from './HumanImperfectionEngine';
 import { SmartResponseSplitter } from './SmartResponseSplitter';
 import { ConversionOptimizer } from './ConversionOptimizer';
 import { FollowUpManager } from './FollowUpManager';
+import { AudioTranscriptionService } from './AudioTranscriptionService';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -31,11 +32,15 @@ export class MessageProcessor {
   private conversionOptimizer: ConversionOptimizer;
   private followUpManager: FollowUpManager;
 
+  // Módulo de transcrição de áudio
+  private audioService: AudioTranscriptionService;
+
   constructor(
     private wahaService: WahaService,
     private openaiService: OpenAIService,
     private humanDelay: HumanDelay,
-    private memoryDB: CustomerMemoryDB
+    private memoryDB: CustomerMemoryDB,
+    private audioTranscription: AudioTranscriptionService
   ) {
     this.processingMessages = new Set();
     this.lastMessageTimestamps = new Map();
@@ -48,6 +53,7 @@ export class MessageProcessor {
     this.responseSplitter = new SmartResponseSplitter();
     this.conversionOptimizer = new ConversionOptimizer();
     this.followUpManager = new FollowUpManager(memoryDB);
+    this.audioService = audioTranscription;
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO inicializado!');
   }
@@ -68,7 +74,9 @@ export class MessageProcessor {
       return false;
     }
 
-    if (!message.body || message.body.trim() === '') {
+    // Permite mensagens de áudio mesmo sem body
+    const isAudio = this.audioService.isAudioMessage(message);
+    if (!isAudio && (!message.body || message.body.trim() === '')) {
       console.log('⏭️ Ignorando mensagem sem texto');
       return false;
     }
@@ -90,11 +98,41 @@ export class MessageProcessor {
       if (!this.shouldProcessMessage(message)) return;
 
       const chatId = message.from;
-      const body = message.body;
+      let body = message.body;
       const messageId = `${chatId}-${message.timestamp}`;
       const now = Date.now();
 
       this.processingMessages.add(messageId);
+
+      // 🎙️ PROCESSA ÁUDIO SE NECESSÁRIO
+      const isAudio = this.audioService.isAudioMessage(message);
+      if (isAudio) {
+        console.log('\n🎙️ ========================================');
+        console.log('🎙️ ÁUDIO DETECTADO - INICIANDO TRANSCRIÇÃO');
+        console.log('🎙️ ========================================\n');
+
+        try {
+          // Envia resposta humanizada ANTES de transcrever (conexão genuína!)
+          const acknowledgment = this.audioService.getAudioAcknowledgment();
+          await this.wahaService.sendMessage(chatId, acknowledgment);
+          console.log(`💬 Marina: "${acknowledgment}"`);
+
+          // Pega URL do áudio
+          const audioUrl = this.audioService.getAudioUrl(message);
+          if (!audioUrl) {
+            throw new Error('URL do áudio não encontrada');
+          }
+
+          // Transcreve o áudio
+          body = await this.audioService.transcribeAudio(audioUrl, messageId);
+          console.log(`✅ Áudio transcrito: "${body.substring(0, 100)}..."`);
+        } catch (error: any) {
+          console.error(`❌ Erro ao processar áudio: ${error.message}`);
+          await this.wahaService.sendMessage(chatId, 'nao consegui ouvir direito, pode repetir?');
+          this.processingMessages.delete(messageId);
+          return;
+        }
+      }
 
       console.log('\n🧠 ========================================');
       console.log(`🧠 PROCESSAMENTO COMPORTAMENTAL INICIADO`);

@@ -5,6 +5,7 @@ import { OpenAIService } from './services/OpenAIService';
 import { HumanDelay } from './services/HumanDelay';
 import { MessageProcessor } from './services/MessageProcessor';
 import { CustomerMemoryDB } from './services/CustomerMemoryDB';
+import { AudioTranscriptionService } from './services/AudioTranscriptionService';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -16,12 +17,13 @@ const WAHA_API_URL = process.env.WAHA_API_URL!;
 const WAHA_API_KEY = process.env.WAHA_API_KEY!;
 const WAHA_SESSION = process.env.WAHA_SESSION || 'default';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+const GROQ_API_KEY = process.env.GROQ_API_KEY!;
 const DB_PATH = process.env.DB_PATH || './data/customers.db';
 
 // Validações
-if (!WAHA_API_URL || !WAHA_API_KEY || !OPENAI_API_KEY) {
+if (!WAHA_API_URL || !WAHA_API_KEY || !OPENAI_API_KEY || !GROQ_API_KEY) {
   console.error('❌ Erro: Variáveis de ambiente não configuradas!');
-  console.error('Por favor, configure WAHA_API_URL, WAHA_API_KEY e OPENAI_API_KEY no arquivo .env');
+  console.error('Por favor, configure WAHA_API_URL, WAHA_API_KEY, OPENAI_API_KEY e GROQ_API_KEY no arquivo .env');
   process.exit(1);
 }
 
@@ -34,8 +36,9 @@ console.log('🚀 ========================================\n');
 const memoryDB = new CustomerMemoryDB(DB_PATH);
 const wahaService = new WahaService(WAHA_API_URL, WAHA_API_KEY, WAHA_SESSION);
 const openaiService = new OpenAIService(OPENAI_API_KEY);
+const audioService = new AudioTranscriptionService(GROQ_API_KEY);
 const humanDelay = new HumanDelay();
-const messageProcessor = new MessageProcessor(wahaService, openaiService, humanDelay, memoryDB);
+const messageProcessor = new MessageProcessor(wahaService, openaiService, humanDelay, memoryDB, audioService);
 
 // Inicializa Express
 const app = express();
