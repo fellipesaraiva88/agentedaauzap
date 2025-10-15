@@ -63,6 +63,11 @@ export class MessageProcessor {
       return false;
     }
 
+    if (message.from?.includes('status@broadcast')) {
+      console.log('⏭️ Ignorando mensagem de status');
+      return false;
+    }
+
     if (!message.body || message.body.trim() === '') {
       console.log('⏭️ Ignorando mensagem sem texto');
       return false;
