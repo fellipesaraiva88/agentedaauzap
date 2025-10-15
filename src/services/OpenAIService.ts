@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
 import { BufferWindowMemory } from 'langchain/memory';
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
+import { ConversationChain } from 'langchain/chains';
+import { ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate, HumanMessagePromptTemplate } from '@langchain/core/prompts';
 
 /**
  * Interface para histórico de conversação
@@ -544,6 +545,40 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
   }
 
   /**
+   * NOVO: Cria PromptTemplate PROFISSIONAL e ESTRUTURADO
+   *
+   * Template com variáveis:
+   * - {system_instructions} - Prompt base do sistema
+   * - {behavioral_context} - Contexto comportamental dinâmico
+   * - {chat_history} - Histórico de mensagens (gerenciado pela memória)
+   * - {user_message} - Mensagem atual do usuário
+   */
+  private createCustomPromptTemplate(): ChatPromptTemplate {
+    return ChatPromptTemplate.fromMessages([
+      // 1️⃣ SYSTEM MESSAGE - Instruções base
+      SystemMessagePromptTemplate.fromTemplate(`{system_instructions}
+
+═══════════════════════════════════════════════════════════════
+📊 CONTEXTO COMPORTAMENTAL DESTA CONVERSA:
+═══════════════════════════════════════════════════════════════
+
+{behavioral_context}
+
+═══════════════════════════════════════════════════════════════
+💬 LEMBRE-SE: Você é HUMANA, não robô!
+═══════════════════════════════════════════════════════════════
+
+Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
+
+      // 2️⃣ CHAT HISTORY - Placeholder para histórico (gerenciado pela memória)
+      new MessagesPlaceholder('chat_history'),
+
+      // 3️⃣ HUMAN MESSAGE - Mensagem atual
+      HumanMessagePromptTemplate.fromTemplate('{user_message}'),
+    ]);
+  }
+
+  /**
    * Adiciona mensagem ao histórico
    */
   private addToHistory(chatId: string, role: 'user' | 'assistant', content: string): void {
@@ -562,7 +597,13 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
   }
 
   /**
-   * NOVO: Gera resposta usando LangChain COM CONTEXTO COMPORTAMENTAL
+   * NOVO: Gera resposta usando LangChain COM PROMPT TEMPLATE PROFISSIONAL
+   *
+   * Arquitetura:
+   * 1. PromptTemplate estruturado com variáveis
+   * 2. ConversationChain com memória automática
+   * 3. Contexto comportamental injetado dinamicamente
+   * 4. Histórico gerenciado pelo LangChain
    */
   public async generateResponse(
     chatId: string,
@@ -577,53 +618,55 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
     }
   ): Promise<string> {
     try {
-      // Pega memória LangChain para este chat
+      // 1️⃣ Pega memória LangChain para este chat
       const memory = this.getOrCreateMemory(chatId);
 
-      // Monta prompt do sistema com contexto comportamental
-      let systemPrompt = this.SYSTEM_PROMPT;
+      // 2️⃣ Monta contexto comportamental formatado
+      let behavioralContextText = 'Primeira mensagem - sem histórico comportamental ainda.';
       if (behavioralContext) {
-        const ctx = this.buildContextualPrompt(behavioralContext);
-        if (ctx) {
-          systemPrompt += '\n\n' + ctx;
-        }
+        behavioralContextText = this.buildContextualPrompt(behavioralContext) || behavioralContextText;
       }
 
-      // Carrega histórico da memória
-      const memoryVariables = await memory.loadMemoryVariables({});
-      const chatHistory = memoryVariables.chat_history || [];
+      // 3️⃣ Cria PromptTemplate customizado
+      const promptTemplate = this.createCustomPromptTemplate();
 
+      // 4️⃣ Cria ConversationChain com template e memória
+      const chain = new ConversationChain({
+        llm: this.langchainModel,
+        memory: memory,
+        prompt: promptTemplate,
+        verbose: false, // true para debug
+      });
+
+      // 5️⃣ Log de debug
+      const memoryVars = await memory.loadMemoryVariables({});
+      const historyLength = memoryVars.chat_history?.length || 0;
       console.log(`🤖 Gerando resposta para: "${userMessage.substring(0, 50)}..."`);
-      console.log(`💾 Memória tem ${chatHistory.length} mensagens`);
+      console.log(`💾 Memória: ${historyLength} mensagens | Engajamento: ${behavioralContext?.engagementScore || 'N/A'} | Sentimento: ${behavioralContext?.sentiment || 'N/A'}`);
 
-      // Monta mensagens: system + histórico + nova mensagem do usuário
-      const messages: any[] = [
-        new SystemMessage(systemPrompt),
-        ...chatHistory,
-        new HumanMessage(userMessage),
-      ];
+      // 6️⃣ Chama chain com variáveis do template
+      const response = await chain.call({
+        system_instructions: this.SYSTEM_PROMPT,
+        behavioral_context: behavioralContextText,
+        user_message: userMessage,
+      });
 
-      // Chama modelo com histórico completo
-      const response = await this.langchainModel.invoke(messages);
-      const finalResponse = response.content.toString() || 'Desculpa, não consegui processar isso. Pode repetir? 😅';
-
-      // Salva na memória
-      await memory.saveContext(
-        { input: userMessage },
-        { output: finalResponse }
-      );
+      const finalResponse = response.response || 'Desculpa, não consegui processar isso. Pode repetir? 😅';
 
       console.log(`✅ Resposta gerada: "${finalResponse.substring(0, 50)}..."`);
+      console.log(`📊 Nova memória: ${historyLength + 2} mensagens (user + assistant)`);
 
       return finalResponse;
     } catch (error: any) {
       console.error('❌ Erro ao gerar resposta:', error.message);
-      console.error('Stack:', error.stack);
+      console.error('📍 Stack trace:', error.stack);
 
+      // Fallback responses humanizadas
       const fallbackResponses = [
         'Opa, deu um bug aqui 😅 Pode repetir?',
         'Desculpa, travei aqui por um segundo. O que você disse?',
         'Eita, não captei. Pode falar de novo?',
+        'Peraí, não entendi direito. Pode repetir?',
       ];
 
       return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
