@@ -19,14 +19,15 @@ export class MessageBuffer {
   private buffers: Map<string, ChatBuffer>;
 
   // Tempo de espera após última mensagem para processar (ms)
-  private readonly WAIT_TIME = 3000; // 3 segundos
+  // AUMENTADO: pessoas digitam devagar no WhatsApp!
+  private readonly WAIT_TIME = 8000; // 8 segundos (antes: 3s)
 
   // Tempo máximo entre mensagens para considerar "sequência" (ms)
-  private readonly MAX_INTERVAL = 5000; // 5 segundos
+  private readonly MAX_INTERVAL = 10000; // 10 segundos (antes: 5s)
 
   constructor() {
     this.buffers = new Map();
-    console.log('📦 MessageBuffer inicializado (WAIT_TIME: 3s, MAX_INTERVAL: 5s)');
+    console.log('📦 MessageBuffer inicializado (WAIT_TIME: 8s, MAX_INTERVAL: 10s)');
   }
 
   /**
@@ -63,11 +64,15 @@ export class MessageBuffer {
       message: message,
     });
 
-    console.log(`📨 ${chatId}: Mensagem adicionada ao buffer (${buffer.messages.length} msgs)`);
+    console.log(`\n📨 ========================================`);
+    console.log(`📨 BUFFER: ${chatId.substring(0, 15)}...`);
+    console.log(`📨 Mensagem ${buffer.messages.length}: "${message.body}"`);
+    console.log(`📨 Total no buffer: ${buffer.messages.length} mensagens`);
 
     // Cancela timer anterior (se houver)
     if (buffer.timer) {
       clearTimeout(buffer.timer);
+      console.log(`⏱️  Timer anterior CANCELADO (nova mensagem chegou)`);
     }
 
     // Cria novo timer para processar após WAIT_TIME
@@ -75,7 +80,9 @@ export class MessageBuffer {
       await this.processBuffer(chatId, processCallback);
     }, this.WAIT_TIME);
 
-    console.log(`⏱️  ${chatId}: Timer configurado (${this.WAIT_TIME}ms)`);
+    console.log(`⏱️  Novo timer: AGUARDANDO ${this.WAIT_TIME / 1000}s antes de processar`);
+    console.log(`⏱️  (Se nova mensagem chegar, timer reinicia)`);
+    console.log(`📨 ========================================\n`);
   }
 
   /**
@@ -92,11 +99,12 @@ export class MessageBuffer {
 
     buffer.processing = true;
     console.log(`\n🔄 ========================================`);
-    console.log(`🔄 PROCESSANDO BUFFER: ${chatId}`);
+    console.log(`🔄 PROCESSANDO BUFFER AGORA!`);
+    console.log(`🔄 Chat: ${chatId.substring(0, 20)}...`);
     console.log(`🔄 Total de mensagens: ${buffer.messages.length}`);
     console.log(`🔄 ========================================\n`);
 
-    // Verifica se mensagens são sequenciais (≤5s entre elas)
+    // Verifica se mensagens são sequenciais (≤10s entre elas)
     const isSequential = this.areMessagesSequential(buffer.messages);
 
     if (isSequential && buffer.messages.length > 1) {
@@ -105,11 +113,12 @@ export class MessageBuffer {
         .map(m => m.body)
         .join(' '); // Concatena com espaço
 
-      console.log(`📝 Mensagens concatenadas:`);
+      console.log(`✅ CONCATENANDO (${buffer.messages.length} mensagens sequenciais):`);
       buffer.messages.forEach((m, i) => {
-        console.log(`   ${i + 1}. "${m.body}"`);
+        const time = new Date(m.timestamp).toTimeString().substring(0, 8);
+        console.log(`   ${i + 1}. [${time}] "${m.body}"`);
       });
-      console.log(`\n✅ Resultado: "${concatenatedBody}"\n`);
+      console.log(`\n✅ RESULTADO FINAL: "${concatenatedBody}"\n`);
 
       // Usa a última mensagem como base (contém metadata correto)
       const lastMessage = buffer.messages[buffer.messages.length - 1].message;
@@ -118,8 +127,14 @@ export class MessageBuffer {
       await processCallback(concatenatedBody, lastMessage);
     } else {
       // NÃO concatena - processa só a última
-      console.log(`⚠️  Mensagens NÃO sequenciais ou única mensagem`);
+      if (buffer.messages.length === 1) {
+        console.log(`ℹ️  Apenas 1 mensagem no buffer - processando normalmente`);
+      } else {
+        console.log(`⚠️  Mensagens NÃO são sequenciais (intervalo > ${this.MAX_INTERVAL / 1000}s)`);
+        console.log(`⚠️  Processando apenas a última mensagem`);
+      }
       const lastMsg = buffer.messages[buffer.messages.length - 1];
+      console.log(`📤 Processando: "${lastMsg.body}"\n`);
       await processCallback(lastMsg.body, lastMsg.message);
     }
 
@@ -132,21 +147,28 @@ export class MessageBuffer {
   }
 
   /**
-   * Verifica se mensagens são sequenciais (≤5s entre elas)
+   * Verifica se mensagens são sequenciais (≤10s entre elas)
    */
   private areMessagesSequential(messages: BufferedMessage[]): boolean {
     if (messages.length <= 1) {
       return false;
     }
 
+    console.log(`🔍 Verificando se ${messages.length} mensagens são sequenciais:`);
+
     for (let i = 1; i < messages.length; i++) {
       const interval = messages[i].timestamp - messages[i - 1].timestamp;
+      const intervalSec = (interval / 1000).toFixed(1);
+
       if (interval > this.MAX_INTERVAL) {
-        console.log(`⚠️  Intervalo muito longo entre mensagens: ${interval}ms`);
+        console.log(`   ❌ Msg ${i} → ${i + 1}: ${intervalSec}s (> ${this.MAX_INTERVAL / 1000}s MAX)`);
         return false;
+      } else {
+        console.log(`   ✅ Msg ${i} → ${i + 1}: ${intervalSec}s (OK)`);
       }
     }
 
+    console.log(`✅ Todas as mensagens são sequenciais!\n`);
     return true;
   }
 
