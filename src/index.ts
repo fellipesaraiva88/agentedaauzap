@@ -86,12 +86,18 @@ app.get('/stats', (req: Request, res: Response) => {
  */
 app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
   try {
-    const { event, payload } = req.body;
+    const { event, payload, session } = req.body;
 
-    console.log(`📥 Webhook recebido: ${event}`);
+    console.log(`📥 Webhook recebido: ${event} (sessão: ${session || 'não informada'})`);
 
     // Responde imediatamente ao WAHA
     res.status(200).json({ received: true });
+
+    // ⚠️ FILTRO: Só processa mensagens da sessão configurada
+    if (session && session !== WAHA_SESSION) {
+      console.log(`⏭️ Ignorando mensagem da sessão "${session}" (esperado: "${WAHA_SESSION}")`);
+      return;
+    }
 
     // Processa mensagem de forma assíncrona
     if (event === 'message' && payload) {
