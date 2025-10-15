@@ -537,9 +537,11 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
         k: 10, // Mantém últimas 10 mensagens
         returnMessages: true,
         memoryKey: 'chat_history',
+        inputKey: 'user_message', // CRÍTICO: define qual variável é o input
+        outputKey: 'response', // CRÍTICO: define qual variável é o output
       });
       this.langchainMemories.set(chatId, memory);
-      console.log(`💾 Nova memória LangChain criada para ${chatId}`);
+      console.log(`💾 Nova memória LangChain criada para ${chatId} (inputKey: user_message, outputKey: response)`);
     }
     return this.langchainMemories.get(chatId)!;
   }
