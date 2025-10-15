@@ -54,10 +54,24 @@ export class MessageAuditor {
       });
     }
 
-    // 3. Uso de asteriscos para negrito (*texto*)
+    // 3. Uso de asteriscos para negrito (*texto*) OU padrão *Título*: explicação
     const boldPattern = /\*[^*]+\*/g;
     const boldMatches = message.match(boldPattern);
-    if (boldMatches && boldMatches.length >= 3) {
+
+    // Padrão MUITO robótico: *Palavra*: explicação (típico de lista de IA)
+    const boldColonPattern = /\*[^*]+\*\s*:/g;
+    const boldColonMatches = message.match(boldColonPattern);
+
+    if (boldColonMatches && boldColonMatches.length >= 1) {
+      score -= 35;
+      warnings.push('Padrão *Título*: explicação detectado (muito robótico)');
+      patterns.push({
+        type: 'bold_colon_pattern',
+        severity: 'critical',
+        description: 'Uso do padrão *Título*: explicação (típico de IA)',
+        example: boldColonMatches[0]
+      });
+    } else if (boldMatches && boldMatches.length >= 3) {
       score -= 25;
       warnings.push('Formatação em negrito excessiva');
       patterns.push({
@@ -223,6 +237,22 @@ export class MessageAuditor {
     // Remove separadores visuais
     corrected = corrected.replace(/^\s*[-=*]{3,}\s*$/gm, '');
 
+    // REMOVE O PADRÃO *Título*: explicação (CRÍTICO!)
+    // Exemplo: "*Adestramento*: a gente faz" vira "a gente faz"
+    corrected = corrected.replace(/\*[^*]+\*\s*:\s*/g, '');
+
+    // REMOVE EXPRESSÕES TÍPICAS DE IA (MUITO IMPORTANTE!)
+    corrected = corrected.replace(/vamos lá:\s*/gi, '');
+    corrected = corrected.replace(/^opa!\s*/gim, ''); // Remove "opa!" no início
+    corrected = corrected.replace(/^pa!\s*/gim, ''); // Remove "pa!" no início
+    corrected = corrected.replace(/^Aqui está\s*/gim, '');
+    corrected = corrected.replace(/^Seguem\s*/gim, '');
+    corrected = corrected.replace(/^Conforme solicitado\s*/gim, '');
+    corrected = corrected.replace(/^Perfeito!\s*/gim, '');
+    corrected = corrected.replace(/^Ótima pergunta!\s*/gim, '');
+    corrected = corrected.replace(/^Com certeza!\s*/gim, '');
+    corrected = corrected.replace(/^Claro!\s*/gim, '');
+
     // Reduz quebras de linha excessivas
     corrected = corrected.replace(/\n\n\n+/g, '\n\n');
 
@@ -231,6 +261,9 @@ export class MessageAuditor {
     if (boldMatches && boldMatches.length >= 3) {
       corrected = corrected.replace(/\*/g, '');
     }
+
+    // Remove linhas vazias no início
+    corrected = corrected.replace(/^\n+/, '');
 
     return corrected.trim();
   }
