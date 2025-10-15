@@ -6,6 +6,7 @@ import { HumanDelay } from './services/HumanDelay';
 import { MessageProcessor } from './services/MessageProcessor';
 import { CustomerMemoryDB } from './services/CustomerMemoryDB';
 import { AudioTranscriptionService } from './services/AudioTranscriptionService';
+import { DatabaseMigration } from './services/DatabaseMigration';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -31,6 +32,13 @@ console.log('\n🚀 ========================================');
 console.log('🚀 Iniciando Sistema ULTRA-HUMANIZADO');
 console.log('🚀 Saraiva Pets - Marina IA Comportamental');
 console.log('🚀 ========================================\n');
+
+// Executa migrations do banco de dados
+console.log('🔧 Executando migrations do banco de dados...');
+const migration = new DatabaseMigration(DB_PATH);
+migration.runMigrations();
+migration.close();
+console.log('');
 
 // Inicializa serviços
 const memoryDB = new CustomerMemoryDB(DB_PATH);

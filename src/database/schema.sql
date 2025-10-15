@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     pet_nome TEXT,
     pet_raca TEXT,
     pet_porte TEXT CHECK(pet_porte IN ('pequeno', 'medio', 'grande')),
-    pet_tipo TEXT CHECK(pet_tipo IN ('cachorro', 'gato', 'outro')),
+    pet_tipo TEXT CHECK(pet_tipo IN ('cachorro', 'gato', 'ave', 'outro')),
 
     -- Timestamps
     first_contact_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     purchase_intent INTEGER NOT NULL DEFAULT 0 CHECK(purchase_intent BETWEEN 0 AND 100),
 
     -- Sentimento
-    last_sentiment TEXT DEFAULT 'neutro' CHECK(last_sentiment IN ('positivo', 'neutro', 'negativo', 'urgente', 'frustrado', 'animado')),
+    last_sentiment TEXT DEFAULT 'neutro' CHECK(last_sentiment IN ('positivo', 'neutro', 'negativo', 'urgente', 'frustrado', 'animado', 'pragmatico')),
 
     -- Estatísticas
     total_messages INTEGER NOT NULL DEFAULT 0,
