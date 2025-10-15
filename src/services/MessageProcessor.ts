@@ -11,6 +11,7 @@ import { ConversionOptimizer } from './ConversionOptimizer';
 import { FollowUpManager } from './FollowUpManager';
 import { AudioTranscriptionService } from './AudioTranscriptionService';
 import { InformationExtractor } from './InformationExtractor';
+import { MessageBuffer } from './MessageBuffer';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -37,6 +38,9 @@ export class MessageProcessor {
   // Módulo de transcrição de áudio
   private audioService: AudioTranscriptionService;
 
+  // Módulo de buffer de mensagens (concatenação)
+  private messageBuffer: MessageBuffer;
+
   constructor(
     private wahaService: WahaService,
     private openaiService: OpenAIService,
@@ -57,6 +61,7 @@ export class MessageProcessor {
     this.conversionOptimizer = new ConversionOptimizer();
     this.followUpManager = new FollowUpManager(memoryDB);
     this.audioService = audioTranscription;
+    this.messageBuffer = new MessageBuffer();
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO inicializado!');
   }
@@ -95,11 +100,37 @@ export class MessageProcessor {
 
   /**
    * NOVO: Processa mensagem com ANÁLISE COMPORTAMENTAL COMPLETA
+   * Usa MessageBuffer para concatenar mensagens enviadas em sequência
    */
   public async processMessage(message: any): Promise<void> {
     try {
       if (!this.shouldProcessMessage(message)) return;
 
+      const chatId = message.from;
+      const isAudio = this.audioService.isAudioMessage(message);
+
+      // Se for áudio, processa imediatamente (não concatena)
+      if (isAudio) {
+        await this.processMessageInternal(message);
+        return;
+      }
+
+      // Para mensagens de texto, usa buffer (concatenação)
+      await this.messageBuffer.addMessage(chatId, message, async (concatenatedBody, lastMessage) => {
+        // Sobrescreve body da última mensagem com concatenação
+        lastMessage.body = concatenatedBody;
+        await this.processMessageInternal(lastMessage);
+      });
+    } catch (error) {
+      console.error('❌ Erro ao processar mensagem:', error);
+    }
+  }
+
+  /**
+   * Processamento interno da mensagem (após concatenação se necessário)
+   */
+  private async processMessageInternal(message: any): Promise<void> {
+    try {
       const chatId = message.from;
       let body = message.body;
       const messageId = `${chatId}-${message.timestamp}`;
@@ -311,9 +342,13 @@ export class MessageProcessor {
     }
   }
 
-  public getStats(): { processing: number } {
+  public getStats(): {
+    processing: number;
+    messageBuffer: { activeBuffers: number; totalMessages: number };
+  } {
     return {
       processing: this.processingMessages.size,
+      messageBuffer: this.messageBuffer.getStats(),
     };
   }
 }
