@@ -50,6 +50,11 @@ export class DatabaseMigration {
       this.db.exec(`
         BEGIN TRANSACTION;
 
+        -- 0. Dropar VIEWS que dependem da tabela user_profiles
+        DROP VIEW IF EXISTS top_engaged_users;
+        DROP VIEW IF EXISTS todays_followups;
+        DROP VIEW IF EXISTS active_conversion_opportunities;
+
         -- 1. Criar tabela temporária com constraints atualizadas
         CREATE TABLE user_profiles_new (
             chat_id TEXT PRIMARY KEY,
@@ -91,6 +96,50 @@ export class DatabaseMigration {
         BEGIN
             UPDATE user_profiles SET updated_at = CURRENT_TIMESTAMP WHERE chat_id = NEW.chat_id;
         END;
+
+        -- 6. Recriar VIEWS
+        CREATE VIEW IF NOT EXISTS top_engaged_users AS
+        SELECT
+            chat_id,
+            nome,
+            pet_nome,
+            engagement_score,
+            engagement_level,
+            conversation_stage,
+            total_messages
+        FROM user_profiles
+        WHERE engagement_level IN ('alto', 'muito_alto')
+        ORDER BY engagement_score DESC;
+
+        CREATE VIEW IF NOT EXISTS todays_followups AS
+        SELECT
+            sf.id,
+            sf.chat_id,
+            up.nome,
+            up.pet_nome,
+            sf.scheduled_for,
+            sf.message,
+            sf.attempt
+        FROM scheduled_followups sf
+        JOIN user_profiles up ON sf.chat_id = up.chat_id
+        WHERE sf.executed = FALSE
+            AND DATE(sf.scheduled_for) = DATE('now')
+        ORDER BY sf.scheduled_for;
+
+        CREATE VIEW IF NOT EXISTS active_conversion_opportunities AS
+        SELECT
+            co.id,
+            co.chat_id,
+            up.nome,
+            up.pet_nome,
+            co.score,
+            co.urgency_level,
+            co.suggested_action,
+            co.detected_at
+        FROM conversion_opportunities co
+        JOIN user_profiles up ON co.chat_id = up.chat_id
+        WHERE co.converted = FALSE
+        ORDER BY co.score DESC, co.urgency_level DESC;
 
         COMMIT;
       `);
