@@ -5,6 +5,7 @@ export class SentimentAnalyzer {
   private frustratedKeywords = ['não consigo', 'difícil', 'complicado', 'demora', 'caro', 'problema'];
   private positiveKeywords = ['obrigado', 'ótimo', 'perfeito', 'adorei', 'excelente', 'maravilha'];
   private animatedKeywords = ['!', 'kkk', 'haha', 'aaa', 'nossa', 'demais'];
+  private pragmaticKeywords = ['preciso', 'quero', 'preciso ver', 'tenho que', 'gostaria', 'quanto', 'como faz'];
 
   public analyze(text: string): SentimentAnalysis {
     const lower = text.toLowerCase();
@@ -12,11 +13,17 @@ export class SentimentAnalyzer {
     let confidence = 0.5;
     const keywords: string[] = [];
 
-    // Detecta urgência
+    // Detecta urgência (prioridade 1)
     if (this.urgentKeywords.some(k => lower.includes(k))) {
       type = 'urgente';
       confidence = 0.9;
       keywords.push(...this.urgentKeywords.filter(k => lower.includes(k)));
+    }
+    // Detecta pragmatismo (prioridade 2 - clientes objetivos)
+    else if (this.pragmaticKeywords.some(k => lower.includes(k))) {
+      type = 'pragmatico';
+      confidence = 0.85;
+      keywords.push(...this.pragmaticKeywords.filter(k => lower.includes(k)));
     }
     // Detecta frustração
     else if (this.frustratedKeywords.some(k => lower.includes(k))) {
@@ -42,9 +49,10 @@ export class SentimentAnalyzer {
     return { type, confidence, keywords, suggestedTone };
   }
 
-  private determineTone(sentiment: SentimentType): 'empático' | 'direto' | 'festivo' | 'calmo' {
+  private determineTone(sentiment: SentimentType): 'empático' | 'direto' | 'festivo' | 'calmo' | 'objetivo' {
     switch (sentiment) {
       case 'urgente': return 'direto';
+      case 'pragmatico': return 'objetivo'; // Cliente quer resolver algo específico
       case 'frustrado': return 'empático';
       case 'animado': return 'festivo';
       case 'positivo': return 'festivo';

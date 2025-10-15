@@ -3,18 +3,19 @@
  * Calcula tempos realistas baseados em engajamento, contexto e hora do dia
  */
 export class HumanDelay {
-  // Velocidade base de digitação em caracteres por minuto (ajustada dinamicamente)
-  private readonly BASE_TYPING_SPEED_CPM = 250;
+  // Velocidade base de digitação em caracteres por minuto (ajustada para WhatsApp)
+  // Pessoas digitam MUITO mais rápido mensagens curtas no WhatsApp
+  private readonly BASE_TYPING_SPEED_CPM = 400; // Antes: 250 (muito lento)
 
   // Tempo de leitura em palavras por minuto
   private readonly READING_SPEED_WPM = 220;
 
-  // Variação aleatória para tornar mais natural (0-30%)
-  private readonly RANDOM_VARIATION = 0.3;
+  // Variação aleatória para tornar mais natural (reduzida para evitar delays excessivos)
+  private readonly RANDOM_VARIATION = 0.2; // Antes: 0.3
 
   // Delays mínimos e máximos (em milissegundos)
-  private readonly MIN_DELAY = 1000; // 1 segundo
-  private readonly MAX_DELAY = 15000; // 15 segundos
+  private readonly MIN_DELAY = 800; // 0.8 segundo (um pouco de delay sempre)
+  private readonly MAX_DELAY = 8000; // 8 segundos (antes: 15s - muito longo)
 
   /**
    * Aguarda um tempo específico
@@ -120,12 +121,34 @@ export class HumanDelay {
 
   /**
    * NOVO: Calcula tempo de digitação adaptativo
+   * AJUSTE: Mensagens curtas são digitadas MUITO mais rápido no WhatsApp
    */
   public calculateAdaptiveTypingTime(text: string, userResponseTime: number, hourOfDay: number): number {
     const chars = text.length;
-    const adaptiveSpeed = this.calculateAdaptiveTypingSpeed(userResponseTime, hourOfDay);
+    let adaptiveSpeed = this.calculateAdaptiveTypingSpeed(userResponseTime, hourOfDay);
+
+    // BOOST para mensagens curtas (WhatsApp real)
+    if (chars <= 30) {
+      // Mensagens muito curtas (ex: "oi", "qual o porte?") = 2.5x mais rápido
+      adaptiveSpeed = adaptiveSpeed * 2.5;
+    } else if (chars <= 60) {
+      // Mensagens curtas/médias = 1.8x mais rápido
+      adaptiveSpeed = adaptiveSpeed * 1.8;
+    } else if (chars <= 100) {
+      // Mensagens médias = 1.3x mais rápido
+      adaptiveSpeed = adaptiveSpeed * 1.3;
+    }
+    // Mensagens longas (100+ chars) = velocidade normal
+
     const typingTimeMs = (chars / adaptiveSpeed) * 60 * 1000;
-    return this.addRandomVariation(typingTimeMs);
+    const finalDelay = this.addRandomVariation(typingTimeMs);
+
+    // Garante que mensagens curtas nunca demorem mais que 3 segundos
+    if (chars <= 30 && finalDelay > 3000) {
+      return Math.random() * 1000 + 1500; // 1.5-2.5s para mensagens muito curtas
+    }
+
+    return Math.max(this.MIN_DELAY, Math.min(this.MAX_DELAY, finalDelay));
   }
 
   /**

@@ -27,4 +27,30 @@ export class ContextAwareness {
     if (hour >= 16 && hour < 19) return 'media'; // Tarde/noite: normal
     return 'baixa'; // Noite/madrugada: mais calma
   }
+
+  /**
+   * Ajusta tom sugerido pelo sentimento baseado no contexto (horário)
+   * Evita tons festivos/energéticos à noite
+   */
+  public adjustToneByContext(
+    suggestedTone: 'empático' | 'direto' | 'festivo' | 'calmo' | 'objetivo',
+    context: ConversationContext
+  ): 'empático' | 'direto' | 'festivo' | 'calmo' | 'objetivo' {
+
+    // Se energia está baixa (noite), evita tom festivo
+    if (context.energyLevel === 'baixa') {
+      if (suggestedTone === 'festivo') {
+        return 'calmo'; // Troca festivo por calmo à noite
+      }
+    }
+
+    // Se energia está alta (manhã), pode manter ou potencializar
+    if (context.energyLevel === 'alta') {
+      if (suggestedTone === 'calmo') {
+        return 'objetivo'; // Manhã = mais objetivo/direto
+      }
+    }
+
+    return suggestedTone; // Mantém o original se não houver conflito
+  }
 }

@@ -10,6 +10,7 @@ import { SmartResponseSplitter } from './SmartResponseSplitter';
 import { ConversionOptimizer } from './ConversionOptimizer';
 import { FollowUpManager } from './FollowUpManager';
 import { AudioTranscriptionService } from './AudioTranscriptionService';
+import { InformationExtractor } from './InformationExtractor';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -23,6 +24,7 @@ export class MessageProcessor {
   private engagementAnalyzer: UserEngagementAnalyzer;
   private sentimentAnalyzer: SentimentAnalyzer;
   private contextAwareness: ContextAwareness;
+  private informationExtractor: InformationExtractor;
 
   // Módulos de humanização
   private imperfectionEngine: HumanImperfectionEngine;
@@ -49,6 +51,7 @@ export class MessageProcessor {
     this.engagementAnalyzer = new UserEngagementAnalyzer();
     this.sentimentAnalyzer = new SentimentAnalyzer();
     this.contextAwareness = new ContextAwareness();
+    this.informationExtractor = new InformationExtractor();
     this.imperfectionEngine = new HumanImperfectionEngine();
     this.responseSplitter = new SmartResponseSplitter();
     this.conversionOptimizer = new ConversionOptimizer();
@@ -160,11 +163,34 @@ export class MessageProcessor {
       // 4️⃣ ANÁLISE DE SENTIMENTO
       const sentiment = this.sentimentAnalyzer.analyze(body);
       console.log(`😊 Sentimento: ${sentiment.type} (${Math.round(sentiment.confidence * 100)}%)`);
-      console.log(`🎭 Tom sugerido: ${sentiment.suggestedTone}`);
 
       // 5️⃣ CONTEXTO (hora do dia, energia)
       const context = this.contextAwareness.getContext();
       console.log(`🌅 Contexto: ${context.greeting}, energia ${context.energyLevel}`);
+
+      // 6️⃣ AJUSTA TOM BASEADO NO CONTEXTO (evita festivo à noite, etc)
+      const adjustedTone = this.contextAwareness.adjustToneByContext(sentiment.suggestedTone, context);
+      console.log(`🎭 Tom: ${sentiment.suggestedTone} → ${adjustedTone} (ajustado)`);
+
+      // 7️⃣ EXTRAI INFORMAÇÕES (nome do pet, tipo, raça, problema)
+      const extractedInfo = this.informationExtractor.extract(body);
+      if (this.informationExtractor.hasInfo(extractedInfo)) {
+        console.log(`📝 Informações extraídas:`, extractedInfo);
+
+        // Atualiza perfil com informações extraídas
+        if (extractedInfo.petName && !profile.petNome) {
+          this.memoryDB.updateProfile({ chatId, petNome: extractedInfo.petName });
+          profile.petNome = extractedInfo.petName;
+        }
+        if (extractedInfo.petType && !profile.petTipo) {
+          this.memoryDB.updateProfile({ chatId, petTipo: extractedInfo.petType });
+          profile.petTipo = extractedInfo.petType;
+        }
+        if (extractedInfo.breed && !profile.petRaca) {
+          this.memoryDB.updateProfile({ chatId, petRaca: extractedInfo.breed });
+          profile.petRaca = extractedInfo.breed;
+        }
+      }
 
       // 6️⃣ ATUALIZA PERFIL NO BANCO
       this.memoryDB.addResponseTime(chatId, responseTime);

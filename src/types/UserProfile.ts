@@ -4,7 +4,7 @@
 
 export type ConversationStage = 'descoberta' | 'interesse' | 'consideracao' | 'decisao' | 'pos_venda';
 export type EngagementLevel = 'baixo' | 'medio' | 'alto' | 'muito_alto';
-export type SentimentType = 'positivo' | 'neutro' | 'negativo' | 'urgente' | 'frustrado' | 'animado';
+export type SentimentType = 'positivo' | 'neutro' | 'negativo' | 'urgente' | 'frustrado' | 'animado' | 'pragmatico';
 
 /**
  * Perfil completo do usuário/cliente
@@ -15,7 +15,7 @@ export interface UserProfile {
   petNome?: string;
   petRaca?: string;
   petPorte?: 'pequeno' | 'medio' | 'grande';
-  petTipo?: 'cachorro' | 'gato' | 'outro';
+  petTipo?: 'cachorro' | 'gato' | 'ave' | 'outro';
 
   // Timestamps
   firstContactDate: Date;
@@ -84,7 +84,7 @@ export interface SentimentAnalysis {
   type: SentimentType;
   confidence: number; // 0-1
   keywords: string[];
-  suggestedTone: 'empático' | 'direto' | 'festivo' | 'calmo';
+  suggestedTone: 'empático' | 'direto' | 'festivo' | 'calmo' | 'objetivo';
 }
 
 /**
