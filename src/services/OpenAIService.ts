@@ -1,4 +1,7 @@
 import OpenAI from 'openai';
+import { BufferWindowMemory } from 'langchain/memory';
+import { ChatOpenAI } from '@langchain/openai';
+import { ConversationChain } from 'langchain/chains';
 
 /**
  * Interface para histórico de conversação
@@ -9,14 +12,16 @@ export interface ConversationMessage {
 }
 
 /**
- * Serviço para gerar respostas usando OpenAI
+ * Serviço para gerar respostas usando OpenAI com LangChain Memory
  */
 export class OpenAIService {
   private openai: OpenAI;
-  private conversationHistory: Map<string, ConversationMessage[]>;
+  private conversationHistory: Map<string, ConversationMessage[]>; // Fallback
+  private langchainMemories: Map<string, BufferWindowMemory>; // Nova memória LangChain
+  private langchainModel: ChatOpenAI;
 
-  // Usando GPT-3.5-turbo que é o modelo mais barato
-  private readonly MODEL = 'gpt-3.5-turbo';
+  // Usando GPT-4o-mini que é mais novo, barato e melhor que 3.5-turbo
+  private readonly MODEL = 'gpt-4o-mini';
 
   // Prompt do sistema para o Saraiva Pets
   private readonly SYSTEM_PROMPT = `🚨🚨🚨 ATENÇÃO CRÍTICA: VOCÊ É UMA VENDEDORA! 🚨🚨🚨
@@ -495,7 +500,17 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
 
   constructor(apiKey: string) {
     this.openai = new OpenAI({ apiKey });
-    this.conversationHistory = new Map();
+    this.conversationHistory = new Map(); // Fallback
+    this.langchainMemories = new Map(); // Memórias LangChain por chatId
+
+    // Inicializa LangChain ChatOpenAI
+    this.langchainModel = new ChatOpenAI({
+      modelName: this.MODEL,
+      temperature: 0.7,
+      openAIApiKey: apiKey,
+    });
+
+    console.log(`🧠 LangChain inicializado com ${this.MODEL}`);
   }
 
   /**
@@ -510,6 +525,22 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
         },
       ]);
     }
+  }
+
+  /**
+   * NOVO: Inicializa ou pega memória LangChain para um chat
+   */
+  private getOrCreateMemory(chatId: string): BufferWindowMemory {
+    if (!this.langchainMemories.has(chatId)) {
+      const memory = new BufferWindowMemory({
+        k: 10, // Mantém últimas 10 mensagens
+        returnMessages: true,
+        memoryKey: 'chat_history',
+      });
+      this.langchainMemories.set(chatId, memory);
+      console.log(`💾 Nova memória LangChain criada para ${chatId}`);
+    }
+    return this.langchainMemories.get(chatId)!;
   }
 
   /**
@@ -531,7 +562,7 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
   }
 
   /**
-   * NOVO: Gera resposta usando OpenAI COM CONTEXTO COMPORTAMENTAL
+   * NOVO: Gera resposta usando LangChain COM CONTEXTO COMPORTAMENTAL
    */
   public async generateResponse(
     chatId: string,
@@ -546,46 +577,40 @@ AGORA VÁ E VENDA COMO UMA CAMPEÃ! 🚀🐾💛🔥`;
     }
   ): Promise<string> {
     try {
-      this.initConversation(chatId);
+      // Pega memória LangChain para este chat
+      const memory = this.getOrCreateMemory(chatId);
 
-      // Adiciona contexto comportamental se fornecido
-      let contextualMessage = userMessage;
+      // Monta prompt com contexto comportamental
+      let fullPrompt = this.SYSTEM_PROMPT;
       if (behavioralContext) {
         const ctx = this.buildContextualPrompt(behavioralContext);
         if (ctx) {
-          // Insere contexto como mensagem do sistema antes da mensagem do usuário
-          this.addToHistory(chatId, 'user', ctx + '\n\n' + userMessage);
-          contextualMessage = ctx + '\n\n' + userMessage;
-        } else {
-          this.addToHistory(chatId, 'user', userMessage);
+          fullPrompt += '\n\n' + ctx;
         }
-      } else {
-        this.addToHistory(chatId, 'user', userMessage);
       }
 
-      const history = this.conversationHistory.get(chatId)!;
-
-      console.log(`🤖 Gerando resposta para: "${userMessage.substring(0, 50)}..."`);
-
-      const completion = await this.openai.chat.completions.create({
-        model: this.MODEL,
-        messages: history,
-        temperature: 0.9,
-        max_tokens: 400,
-        presence_penalty: 0.6,
-        frequency_penalty: 0.5,
+      // Cria chain de conversação com memória
+      const chain = new ConversationChain({
+        llm: this.langchainModel,
+        memory: memory,
+        verbose: false,
       });
 
-      const response = completion.choices[0]?.message?.content ||
-        'Desculpa, não consegui processar isso. Pode repetir? 😅';
+      console.log(`🤖 Gerando resposta para: "${userMessage.substring(0, 50)}..."`);
+      console.log(`💾 Memória tem ${(await memory.loadMemoryVariables({})).chat_history?.length || 0} mensagens`);
 
-      this.addToHistory(chatId, 'assistant', response);
+      // Envia mensagem completa (system prompt + contexto + user message)
+      const response = await chain.call({
+        input: `${fullPrompt}\n\nCliente: ${userMessage}\n\nMarina:`,
+      });
 
-      console.log(`✅ Resposta gerada: "${response.substring(0, 50)}..."`);
+      const finalResponse = response.response || 'Desculpa, não consegui processar isso. Pode repetir? 😅';
 
-      return response;
+      console.log(`✅ Resposta gerada: "${finalResponse.substring(0, 50)}..."`);
+
+      return finalResponse;
     } catch (error: any) {
-      console.error('Erro ao gerar resposta:', error.message);
+      console.error('❌ Erro ao gerar resposta:', error.message);
 
       const fallbackResponses = [
         'Opa, deu um bug aqui 😅 Pode repetir?',
