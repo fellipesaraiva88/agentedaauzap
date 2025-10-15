@@ -192,4 +192,90 @@ export class WahaService {
       console.error('Erro ao marcar como lida:', error.response?.data || error.message);
     }
   }
+
+  /**
+   * Envia reação a uma mensagem
+   */
+  public async sendReaction(chatId: string, messageId: string, emoji: string): Promise<void> {
+    try {
+      await this.api.post('/api/reaction', {
+        session: this.session,
+        chatId,
+        messageId,
+        reaction: emoji,
+      });
+      console.log(`❤️ Reação enviada: ${emoji} para msg ${messageId.substring(0, 10)}...`);
+    } catch (error: any) {
+      console.error('Erro ao enviar reação:', error.response?.data || error.message);
+    }
+  }
+
+  /**
+   * Define status de presença (online/offline)
+   */
+  public async setPresence(chatId: string, available: boolean): Promise<void> {
+    try {
+      await this.api.post(`/api/${this.session}/presence`, {
+        chatId,
+        presence: available ? 'available' : 'unavailable',
+      });
+      console.log(`👤 Presença: ${available ? 'ONLINE' : 'OFFLINE'} para ${chatId.substring(0, 15)}...`);
+    } catch (error: any) {
+      console.error('Erro ao definir presença:', error.response?.data || error.message);
+    }
+  }
+
+  /**
+   * Envia mensagem citando outra mensagem
+   */
+  public async quotedReply(chatId: string, text: string, quotedMessageId: string): Promise<void> {
+    try {
+      const response = await this.api.post('/api/sendText', {
+        session: this.session,
+        chatId,
+        text,
+        reply_to: quotedMessageId,
+      });
+
+      console.log(`💬 Resposta citada enviada para ${chatId} (citando: ${quotedMessageId.substring(0, 10)}...)`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao enviar resposta citada:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Envia mensagem humanizada com opção de citação
+   */
+  public async sendHumanizedQuotedMessage(
+    chatId: string,
+    text: string,
+    typingDurationMs: number,
+    quotedMessageId?: string
+  ): Promise<void> {
+    try {
+      // Inicia indicador de digitação
+      await this.startTyping(chatId);
+
+      // Aguarda o tempo de "digitação"
+      await new Promise(resolve => setTimeout(resolve, typingDurationMs));
+
+      // Para o indicador de digitação
+      await this.stopTyping(chatId);
+
+      // Pequeno delay antes de enviar (mais natural)
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Envia a mensagem (com ou sem citação)
+      if (quotedMessageId) {
+        await this.quotedReply(chatId, text, quotedMessageId);
+      } else {
+        await this.sendMessage(chatId, text);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem humanizada:', error);
+      throw error;
+    }
+  }
 }

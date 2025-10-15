@@ -12,6 +12,9 @@ import { FollowUpManager } from './FollowUpManager';
 import { AudioTranscriptionService } from './AudioTranscriptionService';
 import { InformationExtractor } from './InformationExtractor';
 import { MessageBuffer } from './MessageBuffer';
+import { ReactionDecider } from './ReactionDecider';
+import { QuoteAnalyzer } from './QuoteAnalyzer';
+import { PetPhotoAnalyzer } from './PetPhotoAnalyzer';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -30,6 +33,8 @@ export class MessageProcessor {
   // Módulos de humanização
   private imperfectionEngine: HumanImperfectionEngine;
   private responseSplitter: SmartResponseSplitter;
+  private reactionDecider: ReactionDecider;
+  private quoteAnalyzer: QuoteAnalyzer;
 
   // Módulos de conversão
   private conversionOptimizer: ConversionOptimizer;
@@ -37,6 +42,9 @@ export class MessageProcessor {
 
   // Módulo de transcrição de áudio
   private audioService: AudioTranscriptionService;
+
+  // Módulo de análise de fotos
+  private photoAnalyzer: PetPhotoAnalyzer;
 
   // Módulo de buffer de mensagens (concatenação)
   private messageBuffer: MessageBuffer;
@@ -46,7 +54,8 @@ export class MessageProcessor {
     private openaiService: OpenAIService,
     private humanDelay: HumanDelay,
     private memoryDB: CustomerMemoryDB,
-    private audioTranscription: AudioTranscriptionService
+    private audioTranscription: AudioTranscriptionService,
+    private openaiApiKey: string
   ) {
     this.processingMessages = new Set();
     this.lastMessageTimestamps = new Map();
@@ -58,9 +67,12 @@ export class MessageProcessor {
     this.informationExtractor = new InformationExtractor();
     this.imperfectionEngine = new HumanImperfectionEngine();
     this.responseSplitter = new SmartResponseSplitter();
+    this.reactionDecider = new ReactionDecider();
+    this.quoteAnalyzer = new QuoteAnalyzer();
     this.conversionOptimizer = new ConversionOptimizer();
     this.followUpManager = new FollowUpManager(memoryDB);
     this.audioService = audioTranscription;
+    this.photoAnalyzer = new PetPhotoAnalyzer(openaiApiKey);
     this.messageBuffer = new MessageBuffer();
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO inicializado!');
@@ -174,9 +186,80 @@ export class MessageProcessor {
       console.log(`📨 Mensagem: "${body}"`);
       console.log('🧠 ========================================\n');
 
+      // 🟢 DEFINE PRESENÇA COMO ONLINE
+      await this.wahaService.setPresence(chatId, true);
+
       // 1️⃣ CARREGA/CRIA PERFIL DO USUÁRIO
       const profile = this.memoryDB.getOrCreateProfile(chatId);
       console.log(`👤 Perfil carregado: ${profile.nome || 'novo cliente'}`);
+
+      // 📸 PROCESSA FOTO DO PET SE NECESSÁRIO
+      const hasPhoto = this.photoAnalyzer.hasPhoto(message);
+      if (hasPhoto) {
+        console.log('\n📸 ========================================');
+        console.log('📸 FOTO DETECTADA - ANALISANDO PET');
+        console.log('📸 ========================================\n');
+
+        try {
+          const photoUrl = this.photoAnalyzer.getPhotoUrl(message);
+          if (!photoUrl) {
+            throw new Error('URL da foto não encontrada');
+          }
+
+          // Analisa a foto com Vision API
+          const analysis = await this.photoAnalyzer.analyzePetPhoto(photoUrl);
+
+          if (analysis.detected && analysis.confidence > 50) {
+            console.log(`✅ Pet detectado: ${analysis.petType} (${analysis.confidence}% confiança)`);
+            console.log(`📝 Raça: ${analysis.breed}, Porte: ${analysis.size}, Idade: ${analysis.age}`);
+
+            // Atualiza perfil automaticamente
+            if (analysis.petType && !profile.petTipo) {
+              this.memoryDB.updateProfile({ chatId, petTipo: analysis.petType });
+              profile.petTipo = analysis.petType;
+              console.log(`✅ Tipo salvo: ${analysis.petType}`);
+            }
+
+            if (analysis.breed && !profile.petRaca) {
+              this.memoryDB.updateProfile({ chatId, petRaca: analysis.breed });
+              profile.petRaca = analysis.breed;
+              console.log(`✅ Raça salva: ${analysis.breed}`);
+            }
+
+            if (analysis.size && !profile.petPorte) {
+              this.memoryDB.updateProfile({ chatId, petPorte: analysis.size });
+              profile.petPorte = analysis.size;
+              console.log(`✅ Porte salvo: ${analysis.size}`);
+            }
+
+            // Gera resposta humanizada sobre a foto
+            const photoResponse = this.photoAnalyzer.generatePhotoResponse(analysis, profile.petNome);
+
+            // Envia reação ❤️ primeiro (conexão instantânea)
+            await this.wahaService.sendReaction(chatId, message.id || message._data?.id?.id || 'unknown', '❤️');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Envia resposta humanizada sobre a foto
+            const typingTime = this.humanDelay.calculateAdaptiveTypingTime(photoResponse, 2000, new Date().getHours());
+            await this.wahaService.sendHumanizedMessage(chatId, photoResponse, typingTime);
+
+            // Marca como processado e sai (não processa como mensagem de texto)
+            this.processingMessages.delete(messageId);
+
+            // Define presença offline após delay
+            setTimeout(async () => {
+              await this.wahaService.setPresence(chatId, false);
+            }, 25000);
+
+            return;
+          } else {
+            console.log(`⚠️ Pet não detectado ou baixa confiança (${analysis.confidence}%)`);
+          }
+        } catch (error: any) {
+          console.error(`❌ Erro ao analisar foto: ${error.message}`);
+          // Continua processamento normal se falhar
+        }
+      }
 
       // 2️⃣ CALCULA TEMPO DE RESPOSTA (engajamento)
       const lastTimestamp = this.lastMessageTimestamps.get(chatId) || now;
@@ -205,7 +288,8 @@ export class MessageProcessor {
 
       // 7️⃣ EXTRAI INFORMAÇÕES (nome do pet, tipo, raça, problema)
       const extractedInfo = this.informationExtractor.extract(body);
-      if (this.informationExtractor.hasInfo(extractedInfo)) {
+      const hasExtractedInfo = this.informationExtractor.hasInfo(extractedInfo);
+      if (hasExtractedInfo) {
         console.log(`📝 Informações extraídas:`, extractedInfo);
 
         // Atualiza perfil com informações extraídas
@@ -223,7 +307,32 @@ export class MessageProcessor {
         }
       }
 
-      // 6️⃣ ATUALIZA PERFIL NO BANCO
+      // 8️⃣ DECISÃO DE REAÇÃO (antes de processar resposta)
+      const reactionDecision = this.reactionDecider.decide(message, sentiment.type, hasExtractedInfo);
+      if (reactionDecision.shouldReact) {
+        console.log(`❤️ Decisão de reação: ${reactionDecision.emoji} (reactOnly: ${reactionDecision.reactOnly})`);
+
+        // Delay humanizado antes de reagir
+        await new Promise(resolve => setTimeout(resolve, reactionDecision.delayMs));
+
+        // Envia reação
+        await this.wahaService.sendReaction(chatId, message.id || message._data?.id?.id || 'unknown', reactionDecision.emoji!);
+
+        // Se é só reação (sem texto), finaliza processamento aqui
+        if (reactionDecision.reactOnly) {
+          console.log('✅ Reação enviada (sem texto). Finalizando...\n');
+
+          // Define presença como OFFLINE após delay
+          setTimeout(async () => {
+            await this.wahaService.setPresence(chatId, false);
+          }, 30000); // 30s depois
+
+          this.processingMessages.delete(messageId);
+          return;
+        }
+      }
+
+      // 9️⃣ ATUALIZA PERFIL NO BANCO
       this.memoryDB.addResponseTime(chatId, responseTime);
       profile.lastMessageTimestamp = now;
       profile.totalMessages += 1;
@@ -240,16 +349,20 @@ export class MessageProcessor {
         lastSentiment: sentiment.type
       });
 
-      // 7️⃣ SALVA MENSAGEM NO HISTÓRICO
-      this.memoryDB.saveMessage(chatId, 'user', body, sentiment.type, engagement.score);
+      // 🔟 SALVA MENSAGEM NO HISTÓRICO (com messageId para citações)
+      const whatsappMessageId = message.id || message._data?.id?.id || null;
+      this.memoryDB.saveMessage(chatId, 'user', body, sentiment.type, engagement.score, whatsappMessageId);
 
-      // 8️⃣ MARCA COMO LIDA (comportamento humano)
+      // 1️⃣1️⃣ DELAY E MARCA COMO LIDA (refinado por urgência)
+      let readDelay = 3000; // Padrão: 3s
+      if (sentiment.type === 'urgente') {
+        readDelay = 1000; // Urgente: 1s
+      } else if (context.energyLevel === 'baixa') {
+        readDelay = 5000; // Noite: 5s
+      }
+
+      await new Promise(resolve => setTimeout(resolve, readDelay));
       await this.wahaService.markAsRead(chatId);
-
-      // 9️⃣ DELAY ANTES DE "LER" (mais natural)
-      const preReadDelay = sentiment.type === 'urgente'
-        ? this.humanDelay.calculateUrgentDelay()
-        : await this.humanDelay.shortRandomDelay();
 
       //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL
       console.log('🤖 Gerando resposta com IA comportamental...');
@@ -275,7 +388,17 @@ export class MessageProcessor {
         ? imperfection.modifiedText
         : response;
 
-      // 1️⃣3️⃣ QUEBRA EM MÚLTIPLAS MENSAGENS SE NECESSÁRIO
+      // 1️⃣3️⃣ ANÁLISE DE CITAÇÃO CONTEXTUAL
+      const conversationHistory = this.memoryDB.getRecentMessagesWithIds(chatId, 10);
+      let quoteDecision = this.quoteAnalyzer.analyze(body, conversationHistory, extractedInfo);
+      quoteDecision = this.quoteAnalyzer.shouldApplyRandomly(quoteDecision); // 70% chance
+
+      if (quoteDecision.shouldQuote) {
+        console.log(`💬 Citação detectada: ${quoteDecision.reason}`);
+        console.log(`💬 MessageId a citar: ${quoteDecision.messageIdToQuote?.substring(0, 15)}...`);
+      }
+
+      // 1️⃣4️⃣ QUEBRA EM MÚLTIPLAS MENSAGENS SE NECESSÁRIO
       const shouldSplit = this.responseSplitter.shouldSplit(finalResponse);
 
       if (shouldSplit) {
@@ -297,10 +420,16 @@ export class MessageProcessor {
           );
 
           console.log(`📤 Enviando parte ${i + 1}/${split.parts.length}`);
-          await this.wahaService.sendHumanizedMessage(chatId, part, typingTime);
+
+          // Cita apenas na primeira parte (se aplicável)
+          if (i === 0 && quoteDecision.shouldQuote && quoteDecision.messageIdToQuote) {
+            await this.wahaService.sendHumanizedQuotedMessage(chatId, part, typingTime, quoteDecision.messageIdToQuote);
+          } else {
+            await this.wahaService.sendHumanizedMessage(chatId, part, typingTime);
+          }
         }
       } else {
-        // 1️⃣4️⃣ CALCULA DELAYS HUMANIZADOS ADAPTATIVOS
+        // 1️⃣5️⃣ CALCULA DELAYS HUMANIZADOS ADAPTATIVOS
         const readingTime = this.humanDelay.calculateReadingTime(body);
         const typingTime = this.humanDelay.calculateAdaptiveTypingTime(
           finalResponse,
@@ -311,27 +440,38 @@ export class MessageProcessor {
         console.log(`⏱️ Tempo de leitura: ${Math.round(readingTime / 1000)}s`);
         console.log(`⏱️ Tempo de digitação: ${Math.round(typingTime / 1000)}s (adaptativo!)`);
 
-        // 1️⃣5️⃣ SIMULA LEITURA
+        // 1️⃣6️⃣ SIMULA LEITURA
         await new Promise(resolve => setTimeout(resolve, readingTime));
 
-        // 1️⃣6️⃣ ENVIA COM INDICADOR DE DIGITAÇÃO
+        // 1️⃣7️⃣ ENVIA COM INDICADOR DE DIGITAÇÃO (com ou sem citação)
         console.log('⌨️ Iniciando digitação...');
-        await this.wahaService.sendHumanizedMessage(chatId, finalResponse, typingTime);
+        if (quoteDecision.shouldQuote && quoteDecision.messageIdToQuote) {
+          await this.wahaService.sendHumanizedQuotedMessage(chatId, finalResponse, typingTime, quoteDecision.messageIdToQuote);
+        } else {
+          await this.wahaService.sendHumanizedMessage(chatId, finalResponse, typingTime);
+        }
       }
 
-      // 1️⃣7️⃣ SALVA RESPOSTA NO HISTÓRICO
+      // 1️⃣8️⃣ SALVA RESPOSTA NO HISTÓRICO
       this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
 
-      // 1️⃣8️⃣ AGENDA FOLLOW-UP SE NECESSÁRIO
+      // 1️⃣9️⃣ AGENDA FOLLOW-UP SE NECESSÁRIO
       if (this.followUpManager.shouldScheduleFollowUp(profile, 0)) {
         const followUp = this.followUpManager.createFollowUp(profile, 3); // 3h
         this.memoryDB.scheduleFollowUp(followUp);
         console.log(`📅 Follow-up agendado para daqui 3 horas`);
       }
 
+      // 2️⃣0️⃣ DEFINE PRESENÇA COMO OFFLINE (após delay humanizado)
+      const offlineDelay = Math.random() * 20000 + 15000; // 15-35s
+      setTimeout(async () => {
+        await this.wahaService.setPresence(chatId, false);
+      }, offlineDelay);
+
       console.log('\n✅ ========================================');
       console.log('✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!');
       console.log(`✅ Resposta enviada: "${finalResponse.substring(0, 80)}..."`);
+      console.log(`✅ Presença será definida como OFFLINE em ${Math.round(offlineDelay / 1000)}s`);
       console.log('✅ ========================================\n');
 
       this.processingMessages.delete(messageId);

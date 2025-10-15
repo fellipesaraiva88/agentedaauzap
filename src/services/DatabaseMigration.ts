@@ -153,6 +153,46 @@ export class DatabaseMigration {
   }
 
   /**
+   * Verifica se a migration de message_id já foi aplicada
+   */
+  private needsMessageIdMigration(): boolean {
+    try {
+      // Tenta selecionar a coluna message_id
+      this.db.prepare(`SELECT message_id FROM conversation_history LIMIT 1`).get();
+      return false; // Coluna existe
+    } catch (error: any) {
+      if (error.message && error.message.includes('no such column')) {
+        return true; // Coluna não existe, precisa de migration
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Aplica migration de message_id na tabela conversation_history
+   */
+  private applyMessageIdMigration(): void {
+    console.log('🔧 Aplicando migration: message_id em conversation_history...');
+
+    try {
+      this.db.exec(`
+        BEGIN TRANSACTION;
+
+        -- Adiciona coluna message_id
+        ALTER TABLE conversation_history ADD COLUMN message_id TEXT;
+
+        COMMIT;
+      `);
+
+      console.log('✅ Migration message_id aplicada com sucesso!');
+    } catch (error: any) {
+      console.error('❌ Erro ao aplicar migration message_id:', error.message);
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  /**
    * Executa todas as migrations pendentes
    */
   public runMigrations(): void {
@@ -160,7 +200,13 @@ export class DatabaseMigration {
 
     if (this.needsPragmaticoMigration()) {
       this.applyPragmaticoMigration();
-    } else {
+    }
+
+    if (this.needsMessageIdMigration()) {
+      this.applyMessageIdMigration();
+    }
+
+    if (!this.needsPragmaticoMigration() && !this.needsMessageIdMigration()) {
       console.log('✅ Banco de dados já está atualizado!');
     }
   }

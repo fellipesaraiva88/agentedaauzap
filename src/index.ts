@@ -46,7 +46,7 @@ const wahaService = new WahaService(WAHA_API_URL, WAHA_API_KEY, WAHA_SESSION);
 const openaiService = new OpenAIService(OPENAI_API_KEY);
 const audioService = new AudioTranscriptionService(GROQ_API_KEY);
 const humanDelay = new HumanDelay();
-const messageProcessor = new MessageProcessor(wahaService, openaiService, humanDelay, memoryDB, audioService);
+const messageProcessor = new MessageProcessor(wahaService, openaiService, humanDelay, memoryDB, audioService, OPENAI_API_KEY);
 
 // Inicializa Express
 const app = express();

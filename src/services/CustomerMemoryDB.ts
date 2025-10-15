@@ -227,11 +227,11 @@ export class CustomerMemoryDB {
   /**
    * Salva mensagem no histórico
    */
-  public saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number): void {
+  public saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): void {
     this.db.prepare(`
-      INSERT INTO conversation_history (chat_id, role, content, sentiment, engagement_score)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(chatId, role, content, sentiment || null, engagementScore || null);
+      INSERT INTO conversation_history (chat_id, role, content, sentiment, engagement_score, message_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(chatId, role, content, sentiment || null, engagementScore || null, messageId || null);
 
     // Mantém apenas últimas 50 mensagens por chat
     this.db.prepare(`
@@ -244,6 +244,34 @@ export class CustomerMemoryDB {
         LIMIT 50
       )
     `).run(chatId, chatId);
+  }
+
+  /**
+   * Obtém mensagens recentes com IDs (para QuoteAnalyzer)
+   */
+  public getRecentMessagesWithIds(chatId: string, limit: number = 10): Array<{
+    messageId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+    sentiment?: string;
+  }> {
+    const rows = this.db.prepare(`
+      SELECT message_id, role, content, timestamp, sentiment
+      FROM conversation_history
+      WHERE chat_id = ?
+      ORDER BY timestamp DESC
+      LIMIT ?
+    `).all(chatId, limit) as any[];
+
+    // Retorna em ordem cronológica (mais antiga primeiro)
+    return rows.reverse().map(r => ({
+      messageId: r.message_id || `fallback_${r.timestamp}`, // Fallback para msgs antigas sem ID
+      role: r.role as 'user' | 'assistant',
+      content: r.content,
+      timestamp: new Date(r.timestamp).getTime(),
+      sentiment: r.sentiment
+    }));
   }
 
   /**

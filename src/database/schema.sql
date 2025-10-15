@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS conversation_history (
     chat_id TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
     content TEXT NOT NULL,
+    message_id TEXT, -- ID da mensagem do WhatsApp (para citações)
     timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sentiment TEXT,
     engagement_score INTEGER,
