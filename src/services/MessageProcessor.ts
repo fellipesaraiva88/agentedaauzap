@@ -15,6 +15,11 @@ import { MessageBuffer } from './MessageBuffer';
 import { ReactionDecider } from './ReactionDecider';
 import { QuoteAnalyzer } from './QuoteAnalyzer';
 import { PetPhotoAnalyzer } from './PetPhotoAnalyzer';
+import { PersonalityDetector } from './PersonalityDetector';
+import { PersonalityProfiler } from './PersonalityProfiler';
+import { EmotionalIntelligence } from './EmotionalIntelligence';
+import { ConversationFlowOptimizer } from './ConversationFlowOptimizer';
+import { MessageAuditor } from './MessageAuditor';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -29,6 +34,12 @@ export class MessageProcessor {
   private sentimentAnalyzer: SentimentAnalyzer;
   private contextAwareness: ContextAwareness;
   private informationExtractor: InformationExtractor;
+
+  // 🆕 NOVOS: Módulos de análise psicológica
+  private personalityDetector: PersonalityDetector;
+  private personalityProfiler: PersonalityProfiler;
+  private emotionalIntelligence: EmotionalIntelligence;
+  private flowOptimizer: ConversationFlowOptimizer;
 
   // Módulos de humanização
   private imperfectionEngine: HumanImperfectionEngine;
@@ -75,7 +86,13 @@ export class MessageProcessor {
     this.photoAnalyzer = new PetPhotoAnalyzer(openaiApiKey);
     this.messageBuffer = new MessageBuffer();
 
-    console.log('🧠 MessageProcessor ULTRA-HUMANIZADO inicializado!');
+    // 🆕 NOVOS: Módulos de análise psicológica
+    this.personalityDetector = new PersonalityDetector();
+    this.personalityProfiler = new PersonalityProfiler();
+    this.emotionalIntelligence = new EmotionalIntelligence();
+    this.flowOptimizer = new ConversationFlowOptimizer();
+
+    console.log('🧠 MessageProcessor ULTRA-HUMANIZADO com Análise Psicológica inicializado!');
   }
 
   private shouldProcessMessage(message: any): boolean {
@@ -307,7 +324,56 @@ export class MessageProcessor {
         }
       }
 
-      // 8️⃣ DECISÃO DE REAÇÃO (antes de processar resposta)
+      // 🆕 8️⃣ ANÁLISE PSICOLÓGICA PROFUNDA
+      console.log('\n🎭 ========================================');
+      console.log('🎭 ANÁLISE PSICOLÓGICA INICIADA');
+      console.log('🎭 ========================================\n');
+
+      // Detecta dimensões psicológicas
+      const personalityDimensions = this.personalityDetector.analyze(body, profile, responseTime);
+      const dominantTraits = this.personalityDetector.getDominantTraits(personalityDimensions);
+      console.log(`🎯 Dimensões psicológicas detectadas:`);
+      console.log(`   Traços dominantes (>70): ${dominantTraits.join(', ') || 'equilibrado'}`);
+
+      // Classifica em arquétipo
+      const personalityDimensionsRefined = this.personalityDetector.refineWithHistory(personalityDimensions, profile);
+      const personalityProfile = this.personalityProfiler.classify(personalityDimensionsRefined);
+      console.log(`\n🎭 ARQUÉTIPO: ${personalityProfile.archetype.toUpperCase()}`);
+      console.log(`   Confiança: ${personalityProfile.confidence}%`);
+      console.log(`   Tom recomendado: ${personalityProfile.communicationPreferences.tone}`);
+      console.log(`   Velocidade: ${personalityProfile.communicationPreferences.responseSpeed}`);
+      console.log(`   Detalhamento: ${personalityProfile.communicationPreferences.detailLevel}`);
+
+      // Análise emocional avançada (15 emoções)
+      const emotionalAnalysis = this.emotionalIntelligence.analyze(body, {
+        previousSentiment: profile.lastSentiment,
+        urgency: sentiment.type === 'urgente' ? 'alta' : 'normal',
+        engagementScore: engagement.score
+      });
+      console.log(`\n💭 EMOÇÃO: ${emotionalAnalysis.primaryEmotion} (${emotionalAnalysis.intensity}%)`);
+      if (emotionalAnalysis.secondaryEmotion) {
+        console.log(`   Emoção secundária: ${emotionalAnalysis.secondaryEmotion}`);
+      }
+      console.log(`   Tom emocional: ${emotionalAnalysis.recommendedResponse.tone}`);
+      console.log(`   Validação necessária: ${emotionalAnalysis.recommendedResponse.validation ? 'SIM' : 'NÃO'}`);
+
+      // Análise de fluxo de conversação
+      const flowAnalysis = this.flowOptimizer.identifyStage(body, profile, personalityProfile.archetype);
+      console.log(`\n🗺️ JORNADA: ${flowAnalysis.currentStage.toUpperCase()} → ${flowAnalysis.nextStage}`);
+      console.log(`   Pronto para avançar: ${flowAnalysis.readyToAdvance ? 'SIM' : 'NÃO'}`);
+      console.log(`   Próxima ação: ${this.flowOptimizer.suggestNextAction(flowAnalysis, personalityProfile.archetype)}`);
+
+      // Avisos importantes
+      if (personalityProfile.warnings.length > 0) {
+        console.log(`\n⚠️ AVISOS:`);
+        personalityProfile.warnings.forEach(w => console.log(`   ${w}`));
+      }
+
+      console.log('\n🎭 ========================================');
+      console.log('🎭 ANÁLISE PSICOLÓGICA CONCLUÍDA');
+      console.log('🎭 ========================================\n');
+
+      // 9️⃣ DECISÃO DE REAÇÃO (antes de processar resposta)
       const reactionDecision = this.reactionDecider.decide(message, sentiment.type, hasExtractedInfo);
       if (reactionDecision.shouldReact) {
         console.log(`❤️ Decisão de reação: ${reactionDecision.emoji} (reactOnly: ${reactionDecision.reactOnly})`);
@@ -364,14 +430,20 @@ export class MessageProcessor {
       await new Promise(resolve => setTimeout(resolve, readDelay));
       await this.wahaService.markAsRead(chatId);
 
-      //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL
-      console.log('🤖 Gerando resposta com IA comportamental...');
+      //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL + PSICOLÓGICO
+      console.log('🤖 Gerando resposta com IA comportamental + psicológica...');
       const response = await this.openaiService.generateResponse(chatId, body, {
         engagementScore: engagement.score,
         sentiment: sentiment.type,
         urgency: sentiment.type === 'urgente' ? 'alta' : 'normal',
         petName: profile.petNome,
-        userName: profile.nome
+        userName: profile.nome,
+        // 🆕 NOVOS: Contexto psicológico profundo
+        archetype: personalityProfile.archetype,
+        emotion: emotionalAnalysis.primaryEmotion,
+        emotionIntensity: emotionalAnalysis.intensity,
+        conversationStage: flowAnalysis.currentStage,
+        needsValidation: emotionalAnalysis.recommendedResponse.validation
       });
 
       // 1️⃣1️⃣ ANÁLISE DE CONVERSÃO
@@ -384,9 +456,23 @@ export class MessageProcessor {
 
       // 1️⃣2️⃣ APLICA IMPERFEIÇÕES HUMANAS (2% chance)
       const imperfection = this.imperfectionEngine.processText(response);
-      const finalResponse = imperfection.shouldApply && imperfection.modifiedText
+      let finalResponse = imperfection.shouldApply && imperfection.modifiedText
         ? imperfection.modifiedText
         : response;
+
+      // 🔍 AUDITORIA: Verifica e corrige padrões robóticos
+      const auditResult = MessageAuditor.audit(finalResponse);
+      MessageAuditor.logAudit(chatId, finalResponse, auditResult);
+
+      if (!auditResult.isHuman) {
+        console.log(`⚠️ Mensagem robótica detectada (score: ${auditResult.score}/100)`);
+        console.log(`🔧 Aplicando ${auditResult.patterns.length} correções automáticas...`);
+        finalResponse = MessageAuditor.suggest(finalResponse, auditResult);
+
+        // Re-audita após correção
+        const reAudit = MessageAuditor.audit(finalResponse);
+        console.log(`✅ Mensagem corrigida (novo score: ${reAudit.score}/100)`);
+      }
 
       // 1️⃣3️⃣ ANÁLISE DE CITAÇÃO CONTEXTUAL
       const conversationHistory = this.memoryDB.getRecentMessagesWithIds(chatId, 10);

@@ -3,6 +3,8 @@ import { BufferWindowMemory } from 'langchain/memory';
 import { ChatOpenAI } from '@langchain/openai';
 import { ConversationChain } from 'langchain/chains';
 import { ChatPromptTemplate, MessagesPlaceholder, SystemMessagePromptTemplate, HumanMessagePromptTemplate } from '@langchain/core/prompts';
+import { getMarinaMode } from '../prompts/marina-modes';
+import { PersonalityArchetype } from './PersonalityProfiler';
 
 /**
  * Interface para histórico de conversação
@@ -639,16 +641,29 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
       conversionScore?: number;
       petName?: string;
       userName?: string;
+      // 🆕 NOVOS: Contexto psicológico
+      archetype?: string;
+      emotion?: string;
+      emotionIntensity?: number;
+      conversationStage?: string;
+      needsValidation?: boolean;
     }
   ): Promise<string> {
     try {
       // 1️⃣ Pega memória LangChain para este chat
       const memory = this.getOrCreateMemory(chatId);
 
-      // 2️⃣ Monta contexto comportamental formatado
+      // 2️⃣ Monta contexto comportamental + psicológico formatado
       let behavioralContextText = 'Primeira mensagem - sem histórico comportamental ainda.';
       if (behavioralContext) {
         behavioralContextText = this.buildContextualPrompt(behavioralContext) || behavioralContextText;
+
+        // 🆕 INJETA MODO MARINA ESPECÍFICO se arquétipo detectado
+        if (behavioralContext.archetype) {
+          const marinaMode = getMarinaMode(behavioralContext.archetype as PersonalityArchetype);
+          behavioralContextText += '\n\n' + marinaMode;
+          console.log(`🎭 Modo Marina ativo: ${behavioralContext.archetype.toUpperCase()}`);
+        }
       }
 
       // 3️⃣ Cria PromptTemplate customizado
@@ -701,7 +716,7 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
   }
 
   /**
-   * NOVO: Constrói prompt contextual baseado em análise comportamental
+   * NOVO: Constrói prompt contextual baseado em análise comportamental + psicológica
    */
   private buildContextualPrompt(context: {
     engagementScore: number;
@@ -710,6 +725,11 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
     conversionScore?: number;
     petName?: string;
     userName?: string;
+    archetype?: string;
+    emotion?: string;
+    emotionIntensity?: number;
+    conversationStage?: string;
+    needsValidation?: boolean;
   }): string {
     const parts: string[] = [];
 
@@ -740,6 +760,23 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
 
     if (context.userName) {
       parts.push(`- Use o nome do cliente (${context.userName}) para criar conexão.`);
+    }
+
+    // 🆕 NOVO: Contexto psicológico
+    if (context.emotion) {
+      parts.push(`- EMOÇÃO DETECTADA: ${context.emotion} (${context.emotionIntensity}% intensidade)`);
+      if (context.needsValidation) {
+        parts.push(`  → VALIDE a emoção do cliente antes de responder (ex: "imagino como deve ser difícil")`);
+      }
+    }
+
+    if (context.conversationStage) {
+      parts.push(`- ESTÁGIO DA JORNADA: ${context.conversationStage}`);
+      if (context.conversationStage === 'decisao') {
+        parts.push(`  → Cliente pronto para FECHAR! Facilite a ação agora.`);
+      } else if (context.conversationStage === 'consideracao') {
+        parts.push(`  → Cliente avaliando. Supere objeções e crie urgência.`);
+      }
     }
 
     return parts.length > 1 ? parts.join('\n') : '';
