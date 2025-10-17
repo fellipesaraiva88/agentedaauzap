@@ -217,7 +217,19 @@ export class MessageProcessor {
       console.log(`👤 Perfil carregado: ${profile.nome || 'novo cliente'}`);
 
       // 📸 PROCESSA FOTO DO PET SE NECESSÁRIO
+      // 🔍 DEBUG: Loga estrutura da mensagem para diagnóstico
+      console.log('\n🔍 ========================================');
+      console.log('🔍 DEBUG MENSAGEM RECEBIDA:');
+      console.log('🔍 message.type:', message.type);
+      console.log('🔍 message.hasMedia:', message.hasMedia);
+      console.log('🔍 message.media:', message.media ? 'EXISTS' : 'UNDEFINED');
+      console.log('🔍 message.mediaUrl:', message.mediaUrl);
+      console.log('🔍 message._data?.type:', message._data?.type);
+      console.log('🔍 ========================================\n');
+
       const hasPhoto = this.photoAnalyzer.hasPhoto(message);
+      console.log(`🔍 hasPhoto() retornou: ${hasPhoto}`);
+
       if (hasPhoto) {
         console.log('\n📸 ========================================');
         console.log('📸 FOTO DETECTADA - ANALISANDO PET');
@@ -225,6 +237,8 @@ export class MessageProcessor {
 
         try {
           const photoUrl = this.photoAnalyzer.getPhotoUrl(message);
+          console.log(`🔍 photoUrl extraída: ${photoUrl}`);
+
           if (!photoUrl) {
             throw new Error('URL da foto não encontrada');
           }
@@ -279,8 +293,17 @@ export class MessageProcessor {
             console.log(`⚠️ Pet não detectado ou baixa confiança (${analysis.confidence}%)`);
           }
         } catch (error: any) {
-          console.error(`❌ Erro ao analisar foto: ${error.message}`);
+          console.error('\n❌ ========================================');
+          console.error('❌ ERRO AO PROCESSAR FOTO:');
+          console.error(`❌ Mensagem: ${error.message}`);
+          console.error(`❌ Stack: ${error.stack}`);
+          console.error('❌ ========================================\n');
           // Continua processamento normal se falhar
+        }
+      } else {
+        // Log quando não detecta foto (para debug)
+        if (message.body && message.body.length < 50) {
+          console.log(`🔍 Mensagem SEM foto: "${message.body}"`);
         }
       }
 

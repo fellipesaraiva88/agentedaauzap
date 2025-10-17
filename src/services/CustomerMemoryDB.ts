@@ -445,6 +445,62 @@ export class CustomerMemoryDB {
   }
 
   /**
+   * Salva lembrete de agendamento
+   */
+  public saveAppointmentReminder(reminder: any): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO appointment_reminders
+        (chat_id, service, appointment_time, reminder_time, minutes_before, pet_name, owner_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        reminder.chatId,
+        reminder.service,
+        reminder.appointmentTime.toISOString(),
+        reminder.reminderTime.toISOString(),
+        reminder.minutesBefore,
+        reminder.petName || null,
+        reminder.ownerName || null
+      );
+
+      console.log(`📅 Lembrete salvo no banco: ${reminder.service}`);
+    } catch (error) {
+      console.warn('Aviso: Tabela appointment_reminders não existe ainda');
+    }
+  }
+
+  /**
+   * Marca lembrete como enviado
+   */
+  public markReminderAsSent(chatId: string, appointmentTimestamp: number): void {
+    try {
+      this.db.prepare(`
+        UPDATE appointment_reminders
+        SET sent = 1, sent_at = datetime('now')
+        WHERE chat_id = ? AND strftime('%s', appointment_time) = ?
+      `).run(chatId, Math.floor(appointmentTimestamp / 1000));
+    } catch (error) {
+      // Ignora se tabela não existe
+    }
+  }
+
+  /**
+   * Busca lembretes pendentes
+   */
+  public getPendingReminders(): any[] {
+    try {
+      return this.db.prepare(`
+        SELECT * FROM appointment_reminders
+        WHERE sent = 0
+        AND datetime(reminder_time) > datetime('now')
+        ORDER BY reminder_time ASC
+      `).all() as any[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
    * Fecha conexão com banco de dados
    */
   public close(): void {

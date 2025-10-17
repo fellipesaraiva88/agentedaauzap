@@ -101,6 +101,19 @@ app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
 
     console.log(`📥 Webhook recebido: ${event} (sessão: ${session || 'não informada'})`);
 
+    // 🔍 DEBUG: Loga payload completo para diagnóstico de fotos
+    if (event === 'message' && payload) {
+      console.log('\n🔍 ========================================');
+      console.log('🔍 PAYLOAD DO WEBHOOK WAHA:');
+      console.log('🔍 event:', event);
+      console.log('🔍 payload.type:', payload.type);
+      console.log('🔍 payload.hasMedia:', payload.hasMedia);
+      console.log('🔍 payload.media:', payload.media ? JSON.stringify(payload.media) : 'UNDEFINED');
+      console.log('🔍 payload.mediaUrl:', payload.mediaUrl);
+      console.log('🔍 payload._data:', payload._data ? 'EXISTS' : 'UNDEFINED');
+      console.log('🔍 ========================================\n');
+    }
+
     // Responde imediatamente ao WAHA
     res.status(200).json({ received: true });
 
