@@ -400,6 +400,51 @@ export class CustomerMemoryDB {
   }
 
   /**
+   * Salva follow-up imediato executado
+   */
+  public saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO immediate_followups (chat_id, level, message, attempt, executed_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `).run(chatId, level, message, attempt);
+    } catch (error) {
+      // Tabela pode não existir em DBs antigos, ignora erro
+      console.warn('Aviso: Tabela immediate_followups não existe ainda');
+    }
+  }
+
+  /**
+   * Marca cliente como abandonou (não respondeu 5 follow-ups)
+   */
+  public markClientAsAbandoned(chatId: string): void {
+    this.db.prepare(`
+      UPDATE user_profiles
+      SET
+        conversation_stage = 'abandonou',
+        last_updated = datetime('now')
+      WHERE chat_id = ?
+    `).run(chatId);
+
+    console.log(`❌ Cliente ${chatId} marcado como abandonou`);
+  }
+
+  /**
+   * Busca follow-ups imediatos de um chat
+   */
+  public getImmediateFollowUps(chatId: string): any[] {
+    try {
+      return this.db.prepare(`
+        SELECT * FROM immediate_followups
+        WHERE chat_id = ?
+        ORDER BY executed_at DESC
+      `).all(chatId) as any[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
    * Fecha conexão com banco de dados
    */
   public close(): void {

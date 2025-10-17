@@ -20,6 +20,7 @@ import { PersonalityProfiler } from './PersonalityProfiler';
 import { EmotionalIntelligence } from './EmotionalIntelligence';
 import { ConversationFlowOptimizer } from './ConversationFlowOptimizer';
 import { MessageAuditor } from './MessageAuditor';
+import { ImmediateFollowUpManager } from './ImmediateFollowUpManager';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -50,6 +51,7 @@ export class MessageProcessor {
   // Módulos de conversão
   private conversionOptimizer: ConversionOptimizer;
   private followUpManager: FollowUpManager;
+  private immediateFollowUpManager: ImmediateFollowUpManager;
 
   // Módulo de transcrição de áudio
   private audioService: AudioTranscriptionService;
@@ -82,6 +84,7 @@ export class MessageProcessor {
     this.quoteAnalyzer = new QuoteAnalyzer();
     this.conversionOptimizer = new ConversionOptimizer();
     this.followUpManager = new FollowUpManager(memoryDB);
+    this.immediateFollowUpManager = new ImmediateFollowUpManager(wahaService, memoryDB);
     this.audioService = audioTranscription;
     this.photoAnalyzer = new PetPhotoAnalyzer(openaiApiKey);
     this.messageBuffer = new MessageBuffer();
@@ -202,6 +205,9 @@ export class MessageProcessor {
       console.log(`📨 Chat: ${chatId}`);
       console.log(`📨 Mensagem: "${body}"`);
       console.log('🧠 ========================================\n');
+
+      // 🔥 CLIENTE RESPONDEU - Cancela follow-ups se houver
+      this.immediateFollowUpManager.onClientMessage(chatId);
 
       // 🟢 DEFINE PRESENÇA COMO ONLINE
       await this.wahaService.setPresence(chatId, true);
@@ -541,11 +547,10 @@ export class MessageProcessor {
       // 1️⃣8️⃣ SALVA RESPOSTA NO HISTÓRICO
       this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
 
-      // 1️⃣9️⃣ AGENDA FOLLOW-UP SE NECESSÁRIO
-      if (this.followUpManager.shouldScheduleFollowUp(profile, 0)) {
-        const followUp = this.followUpManager.createFollowUp(profile, 3); // 3h
-        this.memoryDB.scheduleFollowUp(followUp);
-        console.log(`📅 Follow-up agendado para daqui 3 horas`);
+      // 1️⃣9️⃣ 🔥 INICIA FOLLOW-UPS IMEDIATOS SE NECESSÁRIO
+      if (this.immediateFollowUpManager.shouldStartFollowUps(profile)) {
+        this.immediateFollowUpManager.startFollowUpSequence(chatId, profile);
+        console.log(`🔥 Follow-ups IMEDIATOS iniciados (5 níveis em 67min)`);
       }
 
       // 2️⃣0️⃣ DEFINE PRESENÇA COMO OFFLINE (após delay humanizado)
