@@ -95,6 +95,11 @@ export class ContextRetrievalService {
   public async getFullContext(chatId: string): Promise<ContextSnapshot> {
     const db = this.getDB();
 
+    // Se SQLite não disponível (usando Supabase), usa dados do user_profiles
+    if (!db) {
+      return this.getFullContextFromSupabase(chatId);
+    }
+
     // 1. DADOS DO TUTOR
     const tutor = this.getTutorData(db, chatId);
 
@@ -419,6 +424,23 @@ export class ContextRetrievalService {
     prompt += '🧠 CONTEXTO COMPLETO DO CLIENTE\n';
     prompt += '═══════════════════════════════════════════════════════════════\n\n';
 
+    // ⏰ HORÁRIO LOCAL (Florianópolis, BR - GMT-3)
+    const agora = new Date();
+    const horaBrasil = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const hora = horaBrasil.getHours();
+    const minuto = horaBrasil.getMinutes().toString().padStart(2, '0');
+    const diaSemana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][horaBrasil.getDay()];
+    const dia = horaBrasil.getDate();
+    const mes = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][horaBrasil.getMonth()];
+
+    let perioDo = 'madrugada';
+    if (hora >= 6 && hora < 12) perioDo = 'manhã';
+    else if (hora >= 12 && hora < 18) perioDo = 'tarde';
+    else if (hora >= 18 && hora < 22) perioDo = 'noite';
+
+    prompt += `⏰ AGORA: ${diaSemana}, ${dia} de ${mes} - ${hora}:${minuto} (${perioDo})\n`;
+    prompt += `   Importante: Ajuste seu tom e energia ao período do dia!\n\n`;
+
     // TUTOR
     if (context.tutor) {
       prompt += `👤 TUTOR: ${context.tutor.nome}\n`;
@@ -520,9 +542,76 @@ export class ContextRetrievalService {
   }
 
   /**
+   * Contexto a partir do Supabase (user_profiles)
+   * TODO: Implementar versão completa com todas as tabelas do Supabase
+   */
+  private async getFullContextFromSupabase(chatId: string): Promise<ContextSnapshot> {
+    const profile = await this.memoryDB.getOrCreateProfile(chatId);
+
+    // Cria contexto básico a partir do user_profiles
+    const tutor = profile.nome ? {
+      tutorId: chatId,
+      nome: profile.nome,
+      estiloComum: 'casual',
+      arquetipoFrequente: 'desconhecido',
+      horarioPreferido: null,
+      metodoPagamentoPreferido: null
+    } : null;
+
+    const pets: ContextSnapshot['pets'] = [];
+    if (profile.petNome) {
+      pets.push({
+        petId: chatId + '_pet1',
+        nome: profile.petNome,
+        especie: profile.petTipo || 'desconhecido',
+        raca: profile.petRaca || null,
+        idade: null,
+        porte: profile.petPorte || null,
+        temperamento: null,
+        restricoesAlimentares: [],
+        restricoesSaude: [],
+        ultimoServico: null,
+        ultimaBanho: null
+      });
+    }
+
+    const isNovo = !profile.nome && profile.totalMessages === 0;
+    const isVip = profile.purchaseHistory && profile.purchaseHistory.length >= 5;
+    const isInativo = profile.lastMessageTimestamp &&
+                      (Date.now() - profile.lastMessageTimestamp) > (90 * 24 * 60 * 60 * 1000); // 90 days
+
+    return {
+      tutor,
+      pets,
+      ultimasEmocoes: [],
+      servicosAnteriores: [],
+      preferencias: [],
+      ultimaConversa: null,
+      stats: {
+        totalServicos: profile.purchaseHistory?.length || 0,
+        ticketMedio: 0,
+        frequenciaMedia: 0,
+        ultimoServicoData: null
+      },
+      flags: {
+        clienteNovo: isNovo,
+        clienteVip: isVip,
+        clienteInativo: isInativo,
+        onboardingCompleto: !!(profile.nome && profile.petNome),
+        temPetCadastrado: pets.length > 0,
+        primeiraConversa: profile.totalMessages === 0
+      }
+    };
+  }
+
+  /**
    * Helper para acessar DB
    */
-  private getDB(): Database.Database {
-    return (this.memoryDB as any).db;
+  private getDB(): Database.Database | null {
+    try {
+      return (this.memoryDB as any).db || null;
+    } catch {
+      return null;
+    }
   }
 }
