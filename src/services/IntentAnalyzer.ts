@@ -8,6 +8,7 @@ export enum CustomerIntent {
   AGENDAR_SERVICO = 'agendar_servico',
   INFORMACAO_PRECO = 'informacao_preco',
   INFORMACAO_SERVICO = 'informacao_servico',
+  INFORMACAO_LOCALIZACAO = 'informacao_localizacao',
 
   // Gestão
   REAGENDAR = 'reagendar',
@@ -114,6 +115,21 @@ export class IntentAnalyzer {
         /como (funciona|é)/gi,
         /o que (inclui|tem|vem)/gi,
         /(qual|quais).*(diferenca|diferença)/gi
+      ],
+      urgency: 'baixa'
+    },
+
+    [CustomerIntent.INFORMACAO_LOCALIZACAO]: {
+      keywords: [
+        'onde', 'fica', 'endereço', 'endereco', 'localização', 'localizacao',
+        'local', 'chegar', 'como chego', 'como vou', 'mapa', 'distancia',
+        'longe', 'perto', 'bairro', 'rua', 'numero', 'número'
+      ],
+      patterns: [
+        /onde (fica|é|vou|encontro)/gi,
+        /(qual|me (manda|envia)).*(endereço|endereco|localização|localizacao)/gi,
+        /como (chego|vou|faço pra chegar)/gi,
+        /(qual|onde).*(rua|local|bairro)/gi
       ],
       urgency: 'baixa'
     },

@@ -115,6 +115,32 @@ export class WahaService {
   }
 
   /**
+   * Envia localização (GPS) para o chat
+   */
+  public async sendLocation(
+    chatId: string,
+    latitude: number,
+    longitude: number,
+    title?: string,
+    address?: string
+  ): Promise<void> {
+    try {
+      await this.api.post('/api/sendLocation', {
+        session: this.session,
+        chatId,
+        latitude,
+        longitude,
+        title: title || 'Localização',
+        address: address || '',
+      });
+      console.log(`📍 Localização enviada para ${chatId}: ${latitude}, ${longitude}`);
+    } catch (error: any) {
+      console.error('Erro ao enviar localização:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Configura webhook para receber mensagens
    */
   public async setWebhook(webhookUrl: string, events: string[] = ['message']): Promise<void> {
