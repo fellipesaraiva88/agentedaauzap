@@ -265,11 +265,11 @@ export class OnboardingManager {
     const totalCampos = this.REQUIRED_FIELDS.length + this.OPTIONAL_FIELDS.length;
     progress.progressoPercentual = Math.round((progress.camposColetados.length / totalCampos) * 100);
 
-    // Salva progresso
-    this.saveProgress(progress);
-
-    // Avança para próximo stage
+    // Avança para próximo stage ANTES de salvar
     progress.stageAtual = currentStep.nextStage;
+
+    // Salva progresso (agora com o stage correto)
+    this.saveProgress(progress);
 
     // Se completou
     if (currentStep.onComplete) {
