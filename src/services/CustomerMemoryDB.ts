@@ -297,6 +297,11 @@ export class CustomerMemoryDB {
    * Obtém histórico de tempos de resposta
    */
   public getResponseTimeHistory(chatId: string): number[] {
+    // TODO: Implementar versão Supabase desses métodos auxiliares
+    if (this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto no Supabase
+    }
+
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT response_time
@@ -332,6 +337,11 @@ export class CustomerMemoryDB {
    * Obtém interesses do usuário
    */
   public getInterests(chatId: string): string[] {
+    // TODO: Implementar versão Supabase
+    if (this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto no Supabase
+    }
+
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT DISTINCT interest
@@ -358,6 +368,11 @@ export class CustomerMemoryDB {
    * Obtém objeções não resolvidas
    */
   public getObjections(chatId: string): string[] {
+    // TODO: Implementar versão Supabase
+    if (this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto no Supabase
+    }
+
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT objection
@@ -384,6 +399,11 @@ export class CustomerMemoryDB {
    * Obtém histórico de compras
    */
   public getPurchaseHistory(chatId: string): Purchase[] {
+    // TODO: Implementar versão Supabase
+    if (this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto no Supabase
+    }
+
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT service, value, pet_name, purchase_date
@@ -553,7 +573,21 @@ export class CustomerMemoryDB {
    * Converte row do banco para UserProfile
    */
   private rowToUserProfile(row: any): UserProfile {
-    const preferences = row.preferences ? JSON.parse(row.preferences) : {};
+    // No Supabase, preferences já vem como objeto (JSONB)
+    // No SQLite, vem como string e precisa parse
+    let preferences = {};
+    if (row.preferences) {
+      if (typeof row.preferences === 'string') {
+        try {
+          preferences = JSON.parse(row.preferences);
+        } catch (e) {
+          console.warn('⚠️  Erro ao fazer parse de preferences, usando objeto vazio');
+          preferences = {};
+        }
+      } else if (typeof row.preferences === 'object') {
+        preferences = row.preferences;
+      }
+    }
 
     return {
       chatId: row.chat_id,
