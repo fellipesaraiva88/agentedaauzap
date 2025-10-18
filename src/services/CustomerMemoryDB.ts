@@ -555,7 +555,7 @@ export class CustomerMemoryDB {
       // Busca mensagens ordenadas por timestamp DESC
       const messages = await this.supabase.query('conversation_history', {
         filter: { chat_id: chatId },
-        order: { timestamp: 'desc' },
+        order: { column: 'timestamp', ascending: false },
         limit
       });
 
