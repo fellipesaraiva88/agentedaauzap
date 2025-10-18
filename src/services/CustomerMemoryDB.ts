@@ -128,25 +128,38 @@ export class CustomerMemoryDB {
     if (!this.supabase) throw new Error('Supabase not initialized');
 
     try {
-      // Busca perfil existente
+      // Busca perfil existente (sem single: true - permite resultado vazio)
       const profiles = await this.supabase.query('user_profiles', {
-        filter: { chat_id: chatId },
-        single: true
+        filter: { chat_id: chatId }
       });
 
-      if (profiles && profiles.length > 0) {
+      // Se encontrou perfil existente, retorna
+      if (profiles && Array.isArray(profiles) && profiles.length > 0) {
         return this.rowToUserProfile(profiles[0]);
       }
 
-      // Cria novo perfil
+      // Perfil não existe - cria novo
       const now = Date.now();
-      await this.supabase.insert('user_profiles', {
+      const newProfile = await this.supabase.insert('user_profiles', {
         chat_id: chatId,
         last_message_timestamp: now
       });
 
-      // Retorna perfil recém-criado
-      return this.getOrCreateProfileSupabase(chatId);
+      // Se insert retornou o objeto criado, usa ele
+      if (newProfile && Array.isArray(newProfile) && newProfile.length > 0) {
+        return this.rowToUserProfile(newProfile[0]);
+      }
+
+      // Senão, busca novamente (alguns inserts não retornam o objeto)
+      const createdProfiles = await this.supabase.query('user_profiles', {
+        filter: { chat_id: chatId }
+      });
+
+      if (createdProfiles && createdProfiles.length > 0) {
+        return this.rowToUserProfile(createdProfiles[0]);
+      }
+
+      throw new Error('Falha ao criar perfil no Supabase');
     } catch (error) {
       console.error('❌ Erro ao obter/criar perfil:', error);
       throw error;
