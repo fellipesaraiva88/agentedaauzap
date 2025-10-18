@@ -310,13 +310,63 @@ export class OnboardingManager {
 
     switch (field) {
       case 'nome_tutor':
-        // Extrai nomes próprios (primeira palavra com maiúscula)
+        // Lista de saudações a ignorar
+        const saudacoes = [
+          'oi', 'olá', 'ola', 'oii', 'oie', 'hey', 'opa', 'eai', 'e ai',
+          'bom dia', 'boa tarde', 'boa noite', 'tudo bem', 'como vai',
+          'alo', 'alô', 'salve', 'fala', 'beleza'
+        ];
+
+        // Remove pontuação e normaliza
+        const cleaned = lower.replace(/[^\w\s]/g, '').trim();
+
+        // Se for saudação, retorna null (não extraiu nome)
+        if (saudacoes.some(s => cleaned === s || cleaned.startsWith(s + ' '))) {
+          return null;
+        }
+
+        // Tenta extrair nome próprio (primeira palavra com maiúscula)
         const match = message.match(/\b[A-ZÀ-Ü][a-zà-ü]+\b/);
-        return match ? match[0] : lower;
+        if (match) return match[0];
+
+        // Se não tem maiúscula mas é uma palavra curta (provável nome)
+        const words = cleaned.split(/\s+/);
+        if (words.length === 1 && words[0].length >= 3 && words[0].length <= 15) {
+          // Capitaliza primeira letra
+          return words[0].charAt(0).toUpperCase() + words[0].slice(1);
+        }
+
+        return null; // Não conseguiu extrair nome
 
       case 'nome_pet':
+        // Remove pontuação comum
+        const cleanedPet = lower.replace(/[^\w\sÀ-ÿ]/g, '').trim();
+
+        // Ignora se for muito curto ou muito longo
+        if (cleanedPet.length < 2 || cleanedPet.length > 20) {
+          return null;
+        }
+
+        // Ignora se for saudação ou frase comum
+        const commonPhrases = ['nao sei', 'não sei', 'ainda nao', 'ainda não', 'nenhum', 'nao tem', 'não tem'];
+        if (commonPhrases.some(p => cleanedPet.includes(p))) {
+          return null;
+        }
+
+        // Tenta usar extractor primeiro
         const extracted = this.extractor.extract(message);
-        return extracted.petName || lower;
+        if (extracted.petName && extracted.petName.length >= 2) {
+          // Capitaliza primeira letra
+          return extracted.petName.charAt(0).toUpperCase() + extracted.petName.slice(1).toLowerCase();
+        }
+
+        // Pega primeira palavra (provável nome do pet)
+        const firstWord = cleanedPet.split(/\s+/)[0];
+        if (firstWord && firstWord.length >= 2 && firstWord.length <= 15) {
+          return firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
+        }
+
+        return null;
 
       case 'tipo_pet':
         if (/(cachorro|dog|cao|cão)/i.test(lower)) return 'cachorro';

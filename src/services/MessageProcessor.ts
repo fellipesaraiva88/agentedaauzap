@@ -266,48 +266,18 @@ export class MessageProcessor {
         }
       }
 
-      // 🆕 1.2️⃣ VERIFICA SE PRECISA DE ONBOARDING
+      // 🆕 1.2️⃣ ONBOARDING DESABILITADO - IA RESPONDE NATURALMENTE
+      // IMPORTANTE: Onboarding forçado DESABILITADO para permitir conversas naturais
+      // A IA vai coletar informações (nome, pet, etc) organicamente durante a conversa
+      // As informações são extraídas automaticamente pelo InformationExtractor
+
+      /* ONBOARDING FORÇADO - DESABILITADO
       if (this.onboardingManager && fullContext && !fullContext.flags.onboardingCompleto) {
-        const needsOnboarding = this.onboardingManager.needsOnboarding(chatId);
-
-        if (needsOnboarding) {
-          console.log('\n🎓 ========================================');
-          console.log('🎓 ONBOARDING NECESSÁRIO');
-          console.log('🎓 ========================================\n');
-
-          const result = this.onboardingManager.processOnboardingMessage(chatId, body);
-
-          if (result.shouldContinueOnboarding && result.nextQuestion) {
-            // Envia próxima pergunta do onboarding
-            const typingTime = this.humanDelay.calculateAdaptiveTypingTime(
-              result.nextQuestion,
-              2000,
-              new Date().getHours()
-            );
-
-            await this.wahaService.sendHumanizedMessage(chatId, result.nextQuestion, typingTime);
-
-            this.processingMessages.delete(messageId);
-            setTimeout(async () => {
-              await this.wahaService.setPresence(chatId, false);
-            }, 25000);
-
-            return; // Finaliza - aguarda próxima resposta do onboarding
-          }
-
-          if (result.completed) {
-            console.log('✅ Onboarding completo! Continuando para fluxo normal...\n');
-            // Recarrega contexto com dados atualizados
-            if (this.contextRetrieval) {
-              try {
-                fullContext = await this.contextRetrieval.getFullContext(chatId);
-              } catch (error) {
-                console.warn('⚠️ Erro ao recarregar contexto:', error);
-              }
-            }
-          }
-        }
+        // ... código de onboarding removido
       }
+      */
+
+      // A IA agora responde livremente e coleta dados naturalmente
 
       // 📸 PROCESSA FOTO DO PET SE NECESSÁRIO
       // 🔍 DEBUG: Loga estrutura da mensagem para diagnóstico
