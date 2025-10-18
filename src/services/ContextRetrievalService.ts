@@ -554,8 +554,8 @@ export class ContextRetrievalService {
       nome: profile.nome,
       estiloComum: 'casual',
       arquetipoFrequente: 'desconhecido',
-      horarioPreferido: null,
-      metodoPagamentoPreferido: null
+      horarioPreferido: undefined,
+      metodoPagamentoPreferido: undefined
     } : null;
 
     const pets: ContextSnapshot['pets'] = [];
@@ -564,34 +564,34 @@ export class ContextRetrievalService {
         petId: chatId + '_pet1',
         nome: profile.petNome,
         especie: profile.petTipo || 'desconhecido',
-        raca: profile.petRaca || null,
-        idade: null,
-        porte: profile.petPorte || null,
-        temperamento: null,
+        raca: profile.petRaca || undefined,
+        idade: undefined,
+        porte: profile.petPorte || undefined,
+        temperamento: undefined,
         restricoesAlimentares: [],
         restricoesSaude: [],
-        ultimoServico: null,
-        ultimaBanho: null
+        ultimoServico: undefined,
+        ultimaBanho: undefined
       });
     }
 
     const isNovo = !profile.nome && profile.totalMessages === 0;
-    const isVip = profile.purchaseHistory && profile.purchaseHistory.length >= 5;
-    const isInativo = profile.lastMessageTimestamp &&
-                      (Date.now() - profile.lastMessageTimestamp) > (90 * 24 * 60 * 60 * 1000); // 90 days
+    const isVip = !!(profile.purchaseHistory && profile.purchaseHistory.length >= 5);
+    const isInativo = !!(profile.lastMessageTimestamp &&
+                      (Date.now() - profile.lastMessageTimestamp) > (90 * 24 * 60 * 60 * 1000)); // 90 days
 
     return {
       tutor,
       pets,
       ultimasEmocoes: [],
       servicosAnteriores: [],
-      preferencias: [],
-      ultimaConversa: null,
+      preferencias: {},
+      ultimaConversa: undefined,
       stats: {
         totalServicos: profile.purchaseHistory?.length || 0,
-        ticketMedio: 0,
-        frequenciaMedia: 0,
-        ultimoServicoData: null
+        valorTotalGasto: 0,
+        conversoes: 0,
+        taxaConversao: 0
       },
       flags: {
         clienteNovo: isNovo,
