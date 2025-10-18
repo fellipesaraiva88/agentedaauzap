@@ -224,6 +224,9 @@ export class CustomerMemoryDB {
   private async updateProfileSupabase(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
     if (!this.supabase) throw new Error('Supabase not initialized');
 
+    console.log(`💾 [Supabase] Atualizando perfil para chatId: ${profile.chatId}`);
+    console.log(`💾 [Supabase] Dados recebidos:`, profile);
+
     const updateData: Record<string, any> = {};
 
     // Campos simples
@@ -257,12 +260,16 @@ export class CustomerMemoryDB {
     }
 
     if (Object.keys(updateData).length > 0) {
+      console.log(`💾 [Supabase] Dados a serem atualizados:`, updateData);
       try {
-        await this.supabase.update('user_profiles', updateData, { chat_id: profile.chatId });
+        const result = await this.supabase.update('user_profiles', updateData, { chat_id: profile.chatId });
+        console.log(`✅ [Supabase] Perfil atualizado com sucesso!`, result);
       } catch (error) {
-        console.error('❌ Erro ao atualizar perfil:', error);
+        console.error('❌ [Supabase] Erro ao atualizar perfil:', error);
         throw error;
       }
+    } else {
+      console.log(`⚠️  [Supabase] Nenhum dado para atualizar`);
     }
   }
 

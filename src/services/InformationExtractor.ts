@@ -12,9 +12,10 @@ export interface ExtractedInfo {
 export class InformationExtractor {
   // Padrões para detectar nomes de pets
   private readonly PET_NAME_PATTERNS = [
-    /(?:pro|pra|do|da|meu|minha)\s+([A-Z][a-zà-ú]+)/i,
-    /(?:chama|chamado|chamada|nome)\s+(?:é|eh)\s+([A-Z][a-zà-ú]+)/i,
-    /(?:é|eh)\s+o\s+([A-Z][a-zà-ú]+)/i,
+    /(?:chama|chamado|chamada|nome)\s+(?:é|eh|e)\s+([A-Za-zà-úÀ-Ú]+)/i,
+    /(?:é|eh|e)\s+(?:a|o)\s+([A-Za-zà-úÀ-Ú]+)/i,
+    /(?:na|no)\s+([A-Za-zà-úÀ-Ú]+)/i,
+    /(?:pro|pra|do|da|meu|minha)\s+([A-Za-zà-úÀ-Ú]+)/i,
   ];
 
   // Palavras que indicam tipo de pet
@@ -100,6 +101,9 @@ export class InformationExtractor {
     const commonWords = [
       'banho', 'tosa', 'cachorro', 'gato', 'pet', 'animal',
       'problema', 'negocio', 'coisa', 'isso', 'aqui', 'agora',
+      'dar', 'fazer', 'levar', 'trazer', 'buscar', 'pegar',
+      'casa', 'rua', 'hora', 'dia', 'vez', 'tempo',
+      'cio', 'pulga', 'vacina', 'remedio', 'tratamento',
     ];
 
     return !commonWords.includes(lowerName) && name.length >= 3 && name.length <= 15;
