@@ -24,7 +24,8 @@ import { ImmediateFollowUpManager } from './ImmediateFollowUpManager';
 import { PixDiscountManager } from './PixDiscountManager';
 import { ContextRetrievalService } from './ContextRetrievalService';
 import { OnboardingManager } from './OnboardingManager';
-import { IntentAnalyzer } from './IntentAnalyzer';
+import { IntentAnalyzer, CustomerIntent } from './IntentAnalyzer';
+import { PETSHOP_CONFIG, getServicosDescricao, getHorarioDescricao } from '../config/petshop.config';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -488,6 +489,27 @@ export class MessageProcessor {
             console.log(`   ⚠️ Bloqueios: ${journeyAnalysis.blockers.join(', ')}`);
           }
           console.log('🎯 ========================================\n');
+
+          // 📍 AÇÃO AUTOMÁTICA: Enviar localização se detectou intenção
+          if (intentAnalysis.intent === CustomerIntent.INFORMACAO_LOCALIZACAO) {
+            console.log('\n📍 ========================================');
+            console.log('📍 INTENÇÃO DE LOCALIZAÇÃO DETECTADA');
+            console.log('📍 Enviando localização do petshop...');
+            console.log('📍 ========================================\n');
+
+            try {
+              await this.wahaService.sendLocation(
+                chatId,
+                PETSHOP_CONFIG.endereco.latitude,
+                PETSHOP_CONFIG.endereco.longitude,
+                PETSHOP_CONFIG.nome,
+                PETSHOP_CONFIG.endereco.completo
+              );
+              console.log('✅ Localização enviada com sucesso!');
+            } catch (error) {
+              console.error('❌ Erro ao enviar localização:', error);
+            }
+          }
         } catch (error) {
           console.warn('⚠️ Erro na análise de intenção:', error);
         }

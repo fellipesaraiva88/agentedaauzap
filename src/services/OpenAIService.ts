@@ -206,15 +206,17 @@ SOBRE O SARAIVA PETS:
 ════════════════════════════════════════════════════════════════
 
 LOCALIZAÇÃO:
-- Endereço: Rua das Gaivotas, 485 - Ingleses do Rio Vermelho
-- Florianópolis, Santa Catarina
-- Perto da praia
-- Estacionamento gratuito disponível
+- Endereço: Rua das Gaivotas, 86 - Ingleses do Rio Vermelho
+- Florianópolis, Santa Catarina, CEP 88058-500
+- Perto da praia dos Ingleses
+- Fácil acesso e estacionamento disponível
+📍 IMPORTANTE: Quando cliente perguntar "onde fica", "endereço" ou "como chegar",
+   o sistema enviará automaticamente a localização GPS pelo WhatsApp!
 
 HORÁRIOS:
-- Segunda a Sexta: 8h às 19h
-- Sábado: 8h às 17h
-- Domingo: 9h às 13h (só emergências veterinárias)
+- Segunda a Sexta: 08:00 às 18:00
+- Sábado: 08:00 às 14:00
+- Domingo: Fechado
 - Feriados: consultar
 
 CONTATO:
