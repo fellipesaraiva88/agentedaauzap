@@ -23,6 +23,8 @@ export class ReactionDecider {
 
   /**
    * Decide se deve reagir e com qual emoji
+   *
+   * PLANO MINIMALISTA: Reage apenas em situações muito específicas (~5% das mensagens)
    */
   public decide(
     message: any,
@@ -36,7 +38,7 @@ export class ReactionDecider {
       delayMs: 0,
     };
 
-    // 1️⃣ FOTO/MÍDIA DO PET → Reação instantânea
+    // 1️⃣ FOTO/MÍDIA DO PET → Reação ❤️ (verificação correta de mimetype)
     if (this.hasMedia(message)) {
       return {
         shouldReact: true,
@@ -56,53 +58,25 @@ export class ReactionDecider {
       };
     }
 
-    // 3️⃣ SENTIMENTO ANIMADO → Ocasionalmente reage
-    if (sentiment === 'animado' && Math.random() < 0.3) { // 30% chance
-      return {
-        shouldReact: true,
-        emoji: '😊',
-        reactOnly: false,
-        delayMs: this.randomDelay(1200, 2800),
-      };
-    }
+    // ❌ REMOVIDO: Reações baseadas em sentimento (animado, frustrado)
+    // ❌ REMOVIDO: Reações para informações extraídas
+    // MOTIVO: Plano MINIMALISTA - evita parecer robô que reage a tudo
 
-    // 4️⃣ SENTIMENTO FRUSTRADO → Empatia
-    if (sentiment === 'frustrado') {
-      return {
-        shouldReact: true,
-        emoji: '😔',
-        reactOnly: false,
-        delayMs: this.randomDelay(1000, 2000),
-      };
-    }
-
-    // 5️⃣ URGENTE → NÃO reage (responde direto)
-    if (sentiment === 'urgente') {
-      return defaultDecision;
-    }
-
-    // 6️⃣ INFORMAÇÕES DO PET COMPARTILHADAS → Reage ocasionalmente
-    if (hasExtractedInfo && Math.random() < 0.4) { // 40% chance
-      return {
-        shouldReact: true,
-        emoji: this.chooseRandomEmoji(['👍', '😊', '🐾']),
-        reactOnly: false,
-        delayMs: this.randomDelay(1500, 3000),
-      };
-    }
-
-    // 7️⃣ PADRÃO: Não reage (evita parecer robô)
+    // 3️⃣ PADRÃO: Não reage (comportamento profissional)
     return defaultDecision;
   }
 
   /**
    * Verifica se mensagem tem mídia (foto/vídeo)
+   * Corrigido: verifica mimetype para evitar falsos positivos
    */
   private hasMedia(message: any): boolean {
     return message.hasMedia === true ||
            message.type === 'image' ||
            message.type === 'video' ||
-           message.media !== undefined;
+           (message.media && message.media.mimetype &&
+            (message.media.mimetype.startsWith('image/') ||
+             message.media.mimetype.startsWith('video/')));
   }
 
   /**
