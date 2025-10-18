@@ -552,6 +552,74 @@ export class OnboardingManager {
   }
 
   /**
+   * Sincroniza informações do profile com onboarding
+   * Evita perguntar novamente o que já foi coletado
+   */
+  public syncWithProfile(chatId: string, profile: any): void {
+    const db = this.getDB();
+
+    try {
+      const progress = this.getProgress(chatId);
+
+      // Atualiza dados temporários com informações do profile
+      let updated = false;
+
+      if (profile.nome && !progress.dadosTemporarios.nome_tutor) {
+        progress.dadosTemporarios.nome_tutor = profile.nome;
+        progress.camposColetados.push('nome_tutor');
+        updated = true;
+        console.log(`🔄 Sincronizando nome do tutor: ${profile.nome}`);
+      }
+
+      if (profile.petNome && !progress.dadosTemporarios.nome_pet) {
+        progress.dadosTemporarios.nome_pet = profile.petNome;
+        progress.camposColetados.push('nome_pet');
+        updated = true;
+        console.log(`🔄 Sincronizando nome do pet: ${profile.petNome}`);
+      }
+
+      if (profile.petTipo && !progress.dadosTemporarios.tipo_pet) {
+        progress.dadosTemporarios.tipo_pet = profile.petTipo;
+        progress.camposColetados.push('tipo_pet');
+        updated = true;
+        console.log(`🔄 Sincronizando tipo do pet: ${profile.petTipo}`);
+      }
+
+      if (profile.petRaca && !progress.dadosTemporarios.raca) {
+        progress.dadosTemporarios.raca = profile.petRaca;
+        progress.camposColetados.push('raca');
+        updated = true;
+        console.log(`🔄 Sincronizando raça do pet: ${profile.petRaca}`);
+      }
+
+      if (profile.petPorte && !progress.dadosTemporarios.porte) {
+        progress.dadosTemporarios.porte = profile.petPorte;
+        progress.camposColetados.push('porte');
+        updated = true;
+        console.log(`🔄 Sincronizando porte do pet: ${profile.petPorte}`);
+      }
+
+      // Salva progresso se houve atualização
+      if (updated) {
+        // Remove duplicatas
+        progress.camposColetados = [...new Set(progress.camposColetados)];
+        progress.camposPendentes = progress.camposPendentes.filter(
+          campo => !progress.camposColetados.includes(campo)
+        );
+
+        // Recalcula progresso
+        const totalCampos = this.REQUIRED_FIELDS.length + this.OPTIONAL_FIELDS.length;
+        progress.progressoPercentual = Math.round((progress.camposColetados.length / totalCampos) * 100);
+
+        this.saveProgress(progress);
+        console.log(`✅ Onboarding sincronizado: ${progress.progressoPercentual}% completo`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao sincronizar onboarding com profile:', error);
+    }
+  }
+
+  /**
    * Helper: gera ID único
    */
   private generateId(): string {

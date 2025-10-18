@@ -247,6 +247,19 @@ export class MessageProcessor {
       const profile = await this.memoryDB.getOrCreateProfile(chatId);
       console.log(`👤 Perfil carregado: ${profile.nome || 'novo cliente'}`);
 
+      // 🆕 1.0.5️⃣ CAPTURA NOME DO CONTATO AUTOMATICAMENTE
+      const contactName = (message as any).contactName;
+      if (contactName && !profile.nome) {
+        console.log(`📝 Salvando nome do contato automaticamente: ${contactName}`);
+        await this.memoryDB.updateProfile({ chatId, nome: contactName });
+        profile.nome = contactName;
+
+        // 🔄 Sincroniza com onboarding
+        if (this.onboardingManager) {
+          this.onboardingManager.syncWithProfile(chatId, profile);
+        }
+      }
+
       // 🆕 1.1️⃣ CARREGA CONTEXTO COMPLETO DO CLIENTE
       let fullContext = null;
       if (this.contextRetrieval) {
@@ -414,6 +427,11 @@ export class MessageProcessor {
         if (extractedInfo.breed && !profile.petRaca) {
           this.memoryDB.updateProfile({ chatId, petRaca: extractedInfo.breed });
           profile.petRaca = extractedInfo.breed;
+        }
+
+        // 🔄 SINCRONIZA com onboarding (evita perguntar de novo)
+        if (this.onboardingManager) {
+          this.onboardingManager.syncWithProfile(chatId, profile);
         }
       }
 

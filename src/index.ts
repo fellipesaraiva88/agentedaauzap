@@ -233,6 +233,14 @@ app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
 
     // Processa mensagem de forma assíncrona
     if (event === 'message' && payload) {
+      // 📝 Extrai nome do contato do WhatsApp (pushname / notifyName)
+      const contactName = payload._data?.notifyName || payload._data?.pushname || null;
+      if (contactName) {
+        console.log(`👤 Nome do contato detectado: ${contactName}`);
+        // Adiciona ao payload para uso posterior
+        payload.contactName = contactName;
+      }
+
       // Não aguarda para não bloquear o webhook
       messageProcessor.processMessage(payload).catch(error => {
         console.error('Erro ao processar mensagem:', error);

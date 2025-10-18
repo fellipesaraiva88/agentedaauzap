@@ -844,11 +844,18 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
 
     if (context.petName) {
       parts.push(`- Use o nome do pet (${context.petName}) para personalizar.`);
+      parts.push(`  → NÃO pergunte o nome do pet novamente - você já sabe que é ${context.petName}!`);
     }
 
     if (context.userName) {
       parts.push(`- Use o nome do cliente (${context.userName}) para criar conexão.`);
+      parts.push(`  → Chame o cliente pelo nome (${context.userName}) para gerar intimidade!`);
     }
+
+    // 🆕 IMPORTANTE: Memória de contexto da conversa atual
+    parts.push(`- REGRA CRÍTICA: NÃO pergunte informações já mencionadas nesta conversa`);
+    parts.push(`  → Se o cliente disse algo, você LEMBRA disso. Use a memória!`);
+    parts.push(`  → Exemplo: Se cliente disse "meu pet é a Leona", você sabe o nome. Não pergunte de novo!`);
 
     // 🆕 NOVO: Contexto psicológico
     if (context.emotion) {
