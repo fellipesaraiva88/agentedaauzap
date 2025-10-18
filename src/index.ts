@@ -299,5 +299,24 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
+// Graceful shutdown handlers (para detectar quando Render reinicia o serviço)
+process.on('SIGTERM', () => {
+  console.log('\n⚠️ ========================================');
+  console.log('⚠️ SIGTERM RECEBIDO - Servidor sendo desligado');
+  console.log('⚠️ (Deploy ou restart do Render)');
+  console.log('⚠️ Timers pendentes serão perdidos!');
+  console.log('⚠️ ========================================\n');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n⚠️ ========================================');
+  console.log('⚠️ SIGINT RECEBIDO - Servidor sendo desligado');
+  console.log('⚠️ (Ctrl+C ou restart manual)');
+  console.log('⚠️ Timers pendentes serão perdidos!');
+  console.log('⚠️ ========================================\n');
+  process.exit(0);
+});
+
 // Inicia a aplicação
 start();

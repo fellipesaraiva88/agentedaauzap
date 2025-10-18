@@ -77,7 +77,27 @@ export class MessageBuffer {
 
     // Cria novo timer para processar após WAIT_TIME
     buffer.timer = setTimeout(async () => {
-      await this.processBuffer(chatId, processCallback);
+      try {
+        console.log(`\n⏰ ========================================`);
+        console.log(`⏰ TIMER DISPARADO! (${this.WAIT_TIME / 1000}s se passaram)`);
+        console.log(`⏰ Iniciando processamento do buffer...`);
+        console.log(`⏰ ========================================\n`);
+
+        await this.processBuffer(chatId, processCallback);
+      } catch (error) {
+        console.error('\n❌ ========================================');
+        console.error('❌ ERRO NO TIMER DO MESSAGE BUFFER:');
+        console.error('❌', error);
+        console.error('❌ ========================================\n');
+
+        // Limpa buffer mesmo em caso de erro
+        const buf = this.buffers.get(chatId);
+        if (buf) {
+          buf.messages = [];
+          buf.timer = null;
+          buf.processing = false;
+        }
+      }
     }, this.WAIT_TIME);
 
     console.log(`⏱️  Novo timer: AGUARDANDO ${this.WAIT_TIME / 1000}s antes de processar`);
