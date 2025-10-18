@@ -269,9 +269,17 @@ export class CustomerMemoryDB {
   /**
    * Adiciona tempo de resposta ao histórico
    */
-  public addResponseTime(chatId: string, responseTime: number): void {
+  public async addResponseTime(chatId: string, responseTime: number): Promise<void> {
+    if (this.dbType === 'supabase') {
+      return this.addResponseTimeSupabase(chatId, responseTime);
+    } else {
+      return this.addResponseTimeSQLite(chatId, responseTime);
+    }
+  }
+
+  private addResponseTimeSQLite(chatId: string, responseTime: number): void {
     if (!this.db) {
-      console.warn('⚠️ SQLite não disponível - método não implementado para Supabase');
+      console.warn('⚠️ SQLite não disponível');
       return;
     }
 
@@ -291,6 +299,22 @@ export class CustomerMemoryDB {
         LIMIT 10
       )
     `).run(chatId, chatId);
+  }
+
+  private async addResponseTimeSupabase(chatId: string, responseTime: number): Promise<void> {
+    if (!this.supabase) return;
+
+    try {
+      await this.supabase.insert('response_times', {
+        chat_id: chatId,
+        response_time: responseTime
+      });
+
+      // Mantém apenas últimas 10 respostas (TODO: implementar limpeza automática)
+      // Por enquanto, deixa acumular
+    } catch (error) {
+      console.error('❌ Erro ao salvar response time no Supabase:', error);
+    }
   }
 
   /**
@@ -478,7 +502,21 @@ export class CustomerMemoryDB {
   /**
    * Obtém mensagens recentes com IDs (para QuoteAnalyzer)
    */
-  public getRecentMessagesWithIds(chatId: string, limit: number = 10): Array<{
+  public async getRecentMessagesWithIds(chatId: string, limit: number = 10): Promise<Array<{
+    messageId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+    sentiment?: string;
+  }>> {
+    if (this.dbType === 'supabase') {
+      return this.getRecentMessagesWithIdsSupabase(chatId, limit);
+    } else {
+      return this.getRecentMessagesWithIdsSQLite(chatId, limit);
+    }
+  }
+
+  private getRecentMessagesWithIdsSQLite(chatId: string, limit: number): Array<{
     messageId: string;
     role: 'user' | 'assistant';
     content: string;
@@ -502,6 +540,41 @@ export class CustomerMemoryDB {
       timestamp: new Date(r.timestamp).getTime(),
       sentiment: r.sentiment
     }));
+  }
+
+  private async getRecentMessagesWithIdsSupabase(chatId: string, limit: number): Promise<Array<{
+    messageId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+    sentiment?: string;
+  }>> {
+    if (!this.supabase) throw new Error('Supabase not initialized');
+
+    try {
+      // Busca mensagens ordenadas por timestamp DESC
+      const messages = await this.supabase.query('conversation_history', {
+        filter: { chat_id: chatId },
+        order: { timestamp: 'desc' },
+        limit
+      });
+
+      if (!messages || messages.length === 0) {
+        return [];
+      }
+
+      // Retorna em ordem cronológica (mais antiga primeiro)
+      return messages.reverse().map((m: any) => ({
+        messageId: m.message_id || `fallback_${m.timestamp}`,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: new Date(m.timestamp).getTime(),
+        sentiment: m.sentiment
+      }));
+    } catch (error) {
+      console.error('❌ Erro ao buscar mensagens com IDs no Supabase:', error);
+      return []; // Retorna vazio em caso de erro
+    }
   }
 
   /**
@@ -564,7 +637,15 @@ export class CustomerMemoryDB {
   /**
    * Salva oportunidade de conversão
    */
-  public saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): void {
+  public async saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
+    if (this.dbType === 'supabase') {
+      return this.saveConversionOpportunitySupabase(opportunity);
+    } else {
+      return this.saveConversionOpportunitySQLite(opportunity);
+    }
+  }
+
+  private saveConversionOpportunitySQLite(opportunity: ConversionOpportunity & { chatId: string }): void {
     const db = this.requireSQLite();
     db.prepare(`
       INSERT INTO conversion_opportunities (chat_id, score, reason, suggested_action, urgency_level, close_message)
@@ -577,6 +658,23 @@ export class CustomerMemoryDB {
       opportunity.urgencyLevel,
       opportunity.closeMessage || null
     );
+  }
+
+  private async saveConversionOpportunitySupabase(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
+    if (!this.supabase) return;
+
+    try {
+      await this.supabase.insert('conversion_opportunities', {
+        chat_id: opportunity.chatId,
+        score: opportunity.score,
+        reason: opportunity.reason,
+        suggested_action: opportunity.suggestedAction,
+        urgency_level: opportunity.urgencyLevel,
+        close_message: opportunity.closeMessage || null
+      });
+    } catch (error) {
+      console.error('❌ Erro ao salvar conversion opportunity no Supabase:', error);
+    }
   }
 
   /**

@@ -519,7 +519,7 @@ export class MessageProcessor {
       }
 
       // 9️⃣ ATUALIZA PERFIL NO BANCO
-      this.memoryDB.addResponseTime(chatId, responseTime);
+      await this.memoryDB.addResponseTime(chatId, responseTime);
       profile.lastMessageTimestamp = now;
       profile.totalMessages += 1;
       profile.engagementScore = engagement.score;
@@ -589,7 +589,7 @@ export class MessageProcessor {
       if (conversionOpp) {
         console.log(`💰 Oportunidade de conversão detectada! Score: ${conversionOpp.score}`);
         console.log(`📈 Ação: ${conversionOpp.suggestedAction}`);
-        this.memoryDB.saveConversionOpportunity({ chatId, ...conversionOpp });
+        await this.memoryDB.saveConversionOpportunity({ chatId, ...conversionOpp });
       }
 
       // 💳 OFERTA DE DESCONTO PIX (se habilitado e detectado intenção de compra)
@@ -696,7 +696,7 @@ export class MessageProcessor {
       }
 
       // 1️⃣3️⃣ ANÁLISE DE CITAÇÃO CONTEXTUAL
-      const conversationHistory = this.memoryDB.getRecentMessagesWithIds(chatId, 10);
+      const conversationHistory = await this.memoryDB.getRecentMessagesWithIds(chatId, 10);
       let quoteDecision = this.quoteAnalyzer.analyze(body, conversationHistory, extractedInfo);
       quoteDecision = this.quoteAnalyzer.shouldApplyRandomly(quoteDecision); // 70% chance
 

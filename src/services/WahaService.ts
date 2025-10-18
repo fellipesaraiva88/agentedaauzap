@@ -198,7 +198,7 @@ export class WahaService {
    */
   public async sendReaction(chatId: string, messageId: string, emoji: string): Promise<void> {
     try {
-      await this.api.post('/api/reaction', {
+      await this.api.put('/api/reaction', {
         session: this.session,
         chatId,
         messageId,
