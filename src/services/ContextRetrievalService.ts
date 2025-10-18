@@ -568,10 +568,8 @@ export class ContextRetrievalService {
         idade: undefined,
         porte: profile.petPorte || undefined,
         temperamento: undefined,
-        restricoesAlimentares: [],
-        restricoesSaude: [],
         ultimoServico: undefined,
-        ultimaBanho: undefined
+        proximaVacina: undefined
       });
     }
 
@@ -598,8 +596,7 @@ export class ContextRetrievalService {
         clienteVip: isVip,
         clienteInativo: isInativo,
         onboardingCompleto: !!(profile.nome && profile.petNome),
-        temPetCadastrado: pets.length > 0,
-        primeiraConversa: profile.totalMessages === 0
+        temProximaAcao: false
       }
     };
   }
