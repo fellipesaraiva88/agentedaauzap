@@ -243,7 +243,7 @@ export class MessageProcessor {
       await this.wahaService.setPresence(chatId, true);
 
       // 1️⃣ CARREGA/CRIA PERFIL DO USUÁRIO
-      const profile = this.memoryDB.getOrCreateProfile(chatId);
+      const profile = await this.memoryDB.getOrCreateProfile(chatId);
       console.log(`👤 Perfil carregado: ${profile.nome || 'novo cliente'}`);
 
       // 🆕 1.1️⃣ CARREGA CONTEXTO COMPLETO DO CLIENTE

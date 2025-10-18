@@ -2,38 +2,73 @@ import Database from 'better-sqlite3';
 import { UserProfile, Purchase, ScheduledFollowUp, ConversionOpportunity } from '../types/UserProfile';
 import fs from 'fs';
 import path from 'path';
+import { SupabaseClient } from './SupabaseClient';
+
+/**
+ * Tipo de banco de dados em uso
+ */
+type DatabaseType = 'sqlite' | 'supabase';
 
 /**
  * Serviço de banco de dados para memória persistente de clientes
  * Armazena perfis, histórico e análises comportamentais
+ *
+ * SUPORTA: SQLite (local) OU Supabase (PostgreSQL cloud)
+ * Escolha automática baseada em variáveis de ambiente
  */
 export class CustomerMemoryDB {
-  private db: Database.Database;
+  private db: Database.Database | null = null;
+  private supabase: SupabaseClient | null = null;
+  private dbType: DatabaseType;
   private dbPath: string;
 
   constructor(dbPath: string = './data/customers.db') {
     this.dbPath = dbPath;
 
-    // Cria diretório se não existir
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // 🎯 DECIDE QUAL BANCO USAR
+    const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY;
+    this.dbType = useSupabase ? 'supabase' : 'sqlite';
+
+    if (this.dbType === 'supabase') {
+      // 🌐 MODO SUPABASE (PostgreSQL Cloud)
+      this.supabase = SupabaseClient.getInstance();
+      console.log(`📊 CustomerMemoryDB inicializado: SUPABASE (PostgreSQL)`);
+      console.log('   ⚠️  Certifique-se de executar a migration no Supabase Dashboard');
+    } else {
+      // 💾 MODO SQLITE (Local)
+      // Cria diretório se não existir
+      const dir = path.dirname(dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // Conecta ao banco
+      this.db = new Database(dbPath);
+      this.db.pragma('journal_mode = WAL'); // Write-Ahead Logging para melhor performance
+
+      // Inicializa schema
+      this.initializeSchema();
+
+      console.log(`📊 CustomerMemoryDB inicializado: SQLite (${dbPath})`);
     }
-
-    // Conecta ao banco
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL'); // Write-Ahead Logging para melhor performance
-
-    // Inicializa schema
-    this.initializeSchema();
-
-    console.log(`📊 CustomerMemoryDB inicializado: ${dbPath}`);
   }
 
   /**
-   * Inicializa o schema do banco de dados
+   * Helper: Garante que SQLite está disponível ou lança erro
+   */
+  private requireSQLite(): Database.Database {
+    if (!this.db) {
+      throw new Error('SQLite não está disponível. Método não implementado para Supabase ainda.');
+    }
+    return this.db;
+  }
+
+  /**
+   * Inicializa o schema do banco de dados (APENAS SQLite)
    */
   private initializeSchema(): void {
+    if (!this.db) return;
+
     const schemaPath = path.join(__dirname, '../database/schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
 
@@ -54,7 +89,20 @@ export class CustomerMemoryDB {
   /**
    * Obtém ou cria perfil de usuário
    */
-  public getOrCreateProfile(chatId: string): UserProfile {
+  public async getOrCreateProfile(chatId: string): Promise<UserProfile> {
+    if (this.dbType === 'supabase') {
+      return this.getOrCreateProfileSupabase(chatId);
+    } else {
+      return this.getOrCreateProfileSQLite(chatId);
+    }
+  }
+
+  /**
+   * Obtém ou cria perfil (SQLITE)
+   */
+  private getOrCreateProfileSQLite(chatId: string): UserProfile {
+    if (!this.db) throw new Error('SQLite not initialized');
+
     const existing = this.db.prepare(`
       SELECT * FROM user_profiles WHERE chat_id = ?
     `).get(chatId) as any;
@@ -70,13 +118,58 @@ export class CustomerMemoryDB {
       VALUES (?, ?)
     `).run(chatId, now);
 
-    return this.getOrCreateProfile(chatId);
+    return this.getOrCreateProfileSQLite(chatId);
+  }
+
+  /**
+   * Obtém ou cria perfil (SUPABASE)
+   */
+  private async getOrCreateProfileSupabase(chatId: string): Promise<UserProfile> {
+    if (!this.supabase) throw new Error('Supabase not initialized');
+
+    try {
+      // Busca perfil existente
+      const profiles = await this.supabase.query('user_profiles', {
+        filter: { chat_id: chatId },
+        single: true
+      });
+
+      if (profiles && profiles.length > 0) {
+        return this.rowToUserProfile(profiles[0]);
+      }
+
+      // Cria novo perfil
+      const now = Date.now();
+      await this.supabase.insert('user_profiles', {
+        chat_id: chatId,
+        last_message_timestamp: now
+      });
+
+      // Retorna perfil recém-criado
+      return this.getOrCreateProfileSupabase(chatId);
+    } catch (error) {
+      console.error('❌ Erro ao obter/criar perfil:', error);
+      throw error;
+    }
   }
 
   /**
    * Atualiza perfil de usuário
    */
-  public updateProfile(profile: Partial<UserProfile> & { chatId: string }): void {
+  public async updateProfile(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
+    if (this.dbType === 'supabase') {
+      return this.updateProfileSupabase(profile);
+    } else {
+      return this.updateProfileSQLite(profile);
+    }
+  }
+
+  /**
+   * Atualiza perfil (SQLITE)
+   */
+  private updateProfileSQLite(profile: Partial<UserProfile> & { chatId: string }): void {
+    if (!this.db) throw new Error('SQLite not initialized');
+
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -113,9 +206,62 @@ export class CustomerMemoryDB {
   }
 
   /**
+   * Atualiza perfil (SUPABASE)
+   */
+  private async updateProfileSupabase(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
+    if (!this.supabase) throw new Error('Supabase not initialized');
+
+    const updateData: Record<string, any> = {};
+
+    // Campos simples
+    const fieldMap: Record<string, string> = {
+      nome: 'nome',
+      petNome: 'pet_nome',
+      petRaca: 'pet_raca',
+      petPorte: 'pet_porte',
+      petTipo: 'pet_tipo',
+      lastMessageTimestamp: 'last_message_timestamp',
+      avgResponseTime: 'avg_response_time',
+      engagementScore: 'engagement_score',
+      engagementLevel: 'engagement_level',
+      conversationStage: 'conversation_stage',
+      purchaseIntent: 'purchase_intent',
+      lastSentiment: 'last_sentiment',
+      totalMessages: 'total_messages',
+      totalConversations: 'total_conversations',
+      notes: 'notes'
+    };
+
+    Object.entries(profile).forEach(([key, value]) => {
+      if (key !== 'chatId' && value !== undefined && fieldMap[key]) {
+        updateData[fieldMap[key]] = value;
+      }
+    });
+
+    // Preferências (JSONB no Supabase)
+    if (profile.preferences) {
+      updateData.preferences = profile.preferences; // Supabase aceita objeto direto
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      try {
+        await this.supabase.update('user_profiles', updateData, { chat_id: profile.chatId });
+      } catch (error) {
+        console.error('❌ Erro ao atualizar perfil:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
    * Adiciona tempo de resposta ao histórico
    */
   public addResponseTime(chatId: string, responseTime: number): void {
+    if (!this.db) {
+      console.warn('⚠️ SQLite não disponível - método não implementado para Supabase');
+      return;
+    }
+
     this.db.prepare(`
       INSERT INTO response_times (chat_id, response_time)
       VALUES (?, ?)
@@ -138,7 +284,8 @@ export class CustomerMemoryDB {
    * Obtém histórico de tempos de resposta
    */
   public getResponseTimeHistory(chatId: string): number[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT response_time
       FROM response_times
       WHERE chat_id = ?
@@ -153,14 +300,15 @@ export class CustomerMemoryDB {
    * Adiciona interesse do usuário
    */
   public addInterest(chatId: string, interest: string): void {
+    const db = this.requireSQLite();
     // Verifica se já existe
-    const exists = this.db.prepare(`
+    const exists = db.prepare(`
       SELECT id FROM user_interests
       WHERE chat_id = ? AND interest = ?
     `).get(chatId, interest);
 
     if (!exists) {
-      this.db.prepare(`
+      db.prepare(`
         INSERT INTO user_interests (chat_id, interest)
         VALUES (?, ?)
       `).run(chatId, interest);
@@ -171,7 +319,8 @@ export class CustomerMemoryDB {
    * Obtém interesses do usuário
    */
   public getInterests(chatId: string): string[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT DISTINCT interest
       FROM user_interests
       WHERE chat_id = ?
@@ -185,7 +334,8 @@ export class CustomerMemoryDB {
    * Adiciona objeção do usuário
    */
   public addObjection(chatId: string, objection: string): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       INSERT INTO user_objections (chat_id, objection)
       VALUES (?, ?)
     `).run(chatId, objection);
@@ -195,7 +345,8 @@ export class CustomerMemoryDB {
    * Obtém objeções não resolvidas
    */
   public getObjections(chatId: string): string[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT objection
       FROM user_objections
       WHERE chat_id = ? AND resolved = FALSE
@@ -209,7 +360,8 @@ export class CustomerMemoryDB {
    * Adiciona compra ao histórico
    */
   public addPurchase(chatId: string, purchase: Purchase): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       INSERT INTO purchases (chat_id, service, value, pet_name)
       VALUES (?, ?, ?, ?)
     `).run(chatId, purchase.service, purchase.value, purchase.petName || null);
@@ -219,7 +371,8 @@ export class CustomerMemoryDB {
    * Obtém histórico de compras
    */
   public getPurchaseHistory(chatId: string): Purchase[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT service, value, pet_name, purchase_date
       FROM purchases
       WHERE chat_id = ?
@@ -238,13 +391,14 @@ export class CustomerMemoryDB {
    * Salva mensagem no histórico
    */
   public saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       INSERT INTO conversation_history (chat_id, role, content, sentiment, engagement_score, message_id)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(chatId, role, content, sentiment || null, engagementScore || null, messageId || null);
 
     // Mantém apenas últimas 50 mensagens por chat
-    this.db.prepare(`
+    db.prepare(`
       DELETE FROM conversation_history
       WHERE chat_id = ?
       AND id NOT IN (
@@ -266,7 +420,8 @@ export class CustomerMemoryDB {
     timestamp: number;
     sentiment?: string;
   }> {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT message_id, role, content, timestamp, sentiment
       FROM conversation_history
       WHERE chat_id = ?
@@ -288,7 +443,8 @@ export class CustomerMemoryDB {
    * Agenda follow-up
    */
   public scheduleFollowUp(followUp: ScheduledFollowUp): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       INSERT INTO scheduled_followups (chat_id, scheduled_for, reason, message, attempt, last_topic, last_stage)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -306,7 +462,8 @@ export class CustomerMemoryDB {
    * Obtém follow-ups pendentes
    */
   public getPendingFollowUps(): ScheduledFollowUp[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT *
       FROM scheduled_followups
       WHERE executed = FALSE
@@ -331,7 +488,8 @@ export class CustomerMemoryDB {
    * Marca follow-up como executado
    */
   public markFollowUpExecuted(chatId: string): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       UPDATE scheduled_followups
       SET executed = TRUE, executed_at = CURRENT_TIMESTAMP
       WHERE chat_id = ? AND executed = FALSE
@@ -342,7 +500,8 @@ export class CustomerMemoryDB {
    * Salva oportunidade de conversão
    */
   public saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       INSERT INTO conversion_opportunities (chat_id, score, reason, suggested_action, urgency_level, close_message)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(
@@ -359,7 +518,8 @@ export class CustomerMemoryDB {
    * Obtém oportunidades de conversão ativas
    */
   public getActiveConversionOpportunities(chatId: string): ConversionOpportunity[] {
-    const rows = this.db.prepare(`
+    const db = this.requireSQLite();
+    const rows = db.prepare(`
       SELECT score, reason, suggested_action, urgency_level, close_message
       FROM conversion_opportunities
       WHERE chat_id = ? AND converted = FALSE
@@ -414,7 +574,8 @@ export class CustomerMemoryDB {
    */
   public saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): void {
     try {
-      this.db.prepare(`
+      const db = this.requireSQLite();
+      db.prepare(`
         INSERT INTO immediate_followups (chat_id, level, message, attempt, executed_at)
         VALUES (?, ?, ?, ?, datetime('now'))
       `).run(chatId, level, message, attempt);
@@ -428,7 +589,8 @@ export class CustomerMemoryDB {
    * Marca cliente como abandonou (não respondeu 5 follow-ups)
    */
   public markClientAsAbandoned(chatId: string): void {
-    this.db.prepare(`
+    const db = this.requireSQLite();
+    db.prepare(`
       UPDATE user_profiles
       SET
         conversation_stage = 'abandonou',
@@ -444,7 +606,8 @@ export class CustomerMemoryDB {
    */
   public getImmediateFollowUps(chatId: string): any[] {
     try {
-      return this.db.prepare(`
+      const db = this.requireSQLite();
+      return db.prepare(`
         SELECT * FROM immediate_followups
         WHERE chat_id = ?
         ORDER BY executed_at DESC
@@ -459,7 +622,8 @@ export class CustomerMemoryDB {
    */
   public saveAppointmentReminder(reminder: any): void {
     try {
-      this.db.prepare(`
+      const db = this.requireSQLite();
+      db.prepare(`
         INSERT INTO appointment_reminders
         (chat_id, service, appointment_time, reminder_time, minutes_before, pet_name, owner_name)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -484,7 +648,8 @@ export class CustomerMemoryDB {
    */
   public markReminderAsSent(chatId: string, appointmentTimestamp: number): void {
     try {
-      this.db.prepare(`
+      const db = this.requireSQLite();
+      db.prepare(`
         UPDATE appointment_reminders
         SET sent = 1, sent_at = datetime('now')
         WHERE chat_id = ? AND strftime('%s', appointment_time) = ?
@@ -499,7 +664,8 @@ export class CustomerMemoryDB {
    */
   public getPendingReminders(): any[] {
     try {
-      return this.db.prepare(`
+      const db = this.requireSQLite();
+      return db.prepare(`
         SELECT * FROM appointment_reminders
         WHERE sent = 0
         AND datetime(reminder_time) > datetime('now')
@@ -532,7 +698,8 @@ export class CustomerMemoryDB {
     paymentUrl?: string;
   }): void {
     try {
-      this.db.prepare(`
+      const db = this.requireSQLite();
+      db.prepare(`
         INSERT INTO payments (
           chat_id, payment_id, provider, amount, original_amount,
           discount_amount, status, method, description, payment_url
@@ -561,9 +728,10 @@ export class CustomerMemoryDB {
    */
   public updatePaymentStatus(paymentId: string, status: string): void {
     try {
+      const db = this.requireSQLite();
       const confirmedAt = status === 'confirmed' ? Date.now() : null;
 
-      this.db.prepare(`
+      db.prepare(`
         UPDATE payments
         SET status = ?, confirmed_at = ?
         WHERE payment_id = ?
@@ -580,7 +748,8 @@ export class CustomerMemoryDB {
    */
   public getPaymentById(paymentId: string): any {
     try {
-      return this.db.prepare(`
+      const db = this.requireSQLite();
+      return db.prepare(`
         SELECT * FROM payments WHERE payment_id = ?
       `).get(paymentId);
     } catch (error) {
@@ -593,7 +762,8 @@ export class CustomerMemoryDB {
    */
   public getPaymentsByCustomer(chatId: string): any[] {
     try {
-      return this.db.prepare(`
+      const db = this.requireSQLite();
+      return db.prepare(`
         SELECT * FROM payments
         WHERE chat_id = ?
         ORDER BY created_at DESC
@@ -608,7 +778,8 @@ export class CustomerMemoryDB {
    */
   public getPendingPayments(): any[] {
     try {
-      return this.db.prepare(`
+      const db = this.requireSQLite();
+      return db.prepare(`
         SELECT * FROM payments
         WHERE status = 'pending'
         ORDER BY created_at DESC
@@ -623,12 +794,13 @@ export class CustomerMemoryDB {
    */
   public getPaymentAnalytics(chatId?: string): any {
     try {
+      const db = this.requireSQLite();
       if (chatId) {
-        return this.db.prepare(`
+        return db.prepare(`
           SELECT * FROM payment_analytics WHERE chat_id = ?
         `).get(chatId);
       } else {
-        return this.db.prepare(`
+        return db.prepare(`
           SELECT
             COUNT(DISTINCT chat_id) as total_customers,
             SUM(total_payments) as total_payments,
@@ -648,7 +820,70 @@ export class CustomerMemoryDB {
    * Fecha conexão com banco de dados
    */
   public close(): void {
-    this.db.close();
-    console.log('📊 CustomerMemoryDB fechado');
+    if (this.db) {
+      this.db.close();
+      console.log('📊 CustomerMemoryDB (SQLite) fechado');
+    }
+
+    if (this.supabase) {
+      this.supabase.close();
+      console.log('📊 CustomerMemoryDB (Supabase) desconectado');
+    }
   }
 }
+
+/*
+ * ====================================================================
+ * ⚠️  NOTA IMPORTANTE SOBRE MIGRAÇÃO SUPABASE
+ * ====================================================================
+ *
+ * STATUS DA ADAPTAÇÃO:
+ *
+ * ✅ ADAPTADOS (funcionam com SQLite e Supabase):
+ *   - getOrCreateProfile()
+ *   - updateProfile()
+ *
+ * ⚠️  PENDENTES (funcionam APENAS com SQLite):
+ *   - addResponseTime()
+ *   - getResponseTimeHistory()
+ *   - addInterest()
+ *   - getInterests()
+ *   - addObjection()
+ *   - getObjections()
+ *   - addPurchase()
+ *   - getPurchaseHistory()
+ *   - saveMessage()
+ *   - getRecentMessagesWithIds()
+ *   - scheduleFollowUp()
+ *   - getPendingFollowUps()
+ *   - markFollowUpExecuted()
+ *   - saveConversionOpportunity()
+ *   - getActiveConversionOpportunities()
+ *   - saveImmediateFollowUp()
+ *   - markClientAsAbandoned()
+ *   - getImmediateFollowUps()
+ *   - saveAppointmentReminder()
+ *   - markReminderAsSent()
+ *   - getPendingReminders()
+ *   - savePayment()
+ *   - updatePaymentStatus()
+ *   - getPaymentById()
+ *   - getPaymentsByCustomer()
+ *   - getPendingPayments()
+ *   - getPaymentAnalytics()
+ *
+ * 📋 PRÓXIMOS PASSOS:
+ *   1. Adaptar métodos restantes seguindo o padrão:
+ *      - Criar método público async que roteia para SQLite ou Supabase
+ *      - Criar método privado *SQLite() com lógica original
+ *      - Criar método privado *Supabase() com lógica adaptada
+ *   2. Atualizar queries SQL de timestamp (SQLite usa DATETIME, PostgreSQL usa TIMESTAMP)
+ *   3. Atualizar queries de JSON (SQLite usa JSON string, PostgreSQL usa JSONB)
+ *
+ * 🎯 ESTRATÉGIA RECOMENDADA:
+ *   - Manter funcionando com SQLite (100% compatível)
+ *   - Adicionar suporte Supabase incrementalmente
+ *   - Usar flag de ambiente para escolher banco
+ *
+ * ====================================================================
+ */
