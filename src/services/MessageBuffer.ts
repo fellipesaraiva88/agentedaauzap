@@ -19,15 +19,15 @@ export class MessageBuffer {
   private buffers: Map<string, ChatBuffer>;
 
   // Tempo de espera após última mensagem para processar (ms)
-  // AUMENTADO: pessoas digitam devagar no WhatsApp!
-  private readonly WAIT_TIME = 8000; // 8 segundos (antes: 3s)
+  // OTIMIZADO: 3s é o sweet spot entre concatenação e velocidade de resposta
+  private readonly WAIT_TIME = 3000; // 3 segundos (REDUZIDO de 8s para melhorar conversão!)
 
   // Tempo máximo entre mensagens para considerar "sequência" (ms)
-  private readonly MAX_INTERVAL = 10000; // 10 segundos (antes: 5s)
+  private readonly MAX_INTERVAL = 5000; // 5 segundos (REDUZIDO de 10s)
 
   constructor() {
     this.buffers = new Map();
-    console.log('📦 MessageBuffer inicializado (WAIT_TIME: 8s, MAX_INTERVAL: 10s)');
+    console.log('📦 MessageBuffer inicializado (WAIT_TIME: 3s, MAX_INTERVAL: 5s) - OTIMIZADO PARA CONVERSÃO');
   }
 
   /**

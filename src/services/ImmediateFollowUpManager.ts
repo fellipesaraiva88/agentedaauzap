@@ -57,7 +57,7 @@ export class ImmediateFollowUpManager {
 
     this.activeTimers.set(chatId, timers);
 
-    console.log(`✅ 5 follow-ups agendados para ${chatId} (67 minutos)`);
+    console.log(`✅ 5 follow-ups ACELERADOS agendados para ${chatId} (30s, 2min, 5min, 10min, 20min = total 20min)`);
   }
 
   /**

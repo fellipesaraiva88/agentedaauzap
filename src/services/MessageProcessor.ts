@@ -26,6 +26,8 @@ import { ContextRetrievalService } from './ContextRetrievalService';
 import { OnboardingManager } from './OnboardingManager';
 import { IntentAnalyzer, CustomerIntent } from './IntentAnalyzer';
 import { PETSHOP_CONFIG, getServicosDescricao, getHorarioDescricao } from '../config/petshop.config';
+import { PersonalizedGreeting } from './PersonalizedGreeting';
+import { ProofSocialEngine } from './ProofSocialEngine';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -74,6 +76,10 @@ export class MessageProcessor {
   private contextRetrieval?: ContextRetrievalService;
   private onboardingManager?: OnboardingManager;
   private intentAnalyzer?: IntentAnalyzer;
+
+  // ⚡ NOVOS: Sprint 1 Quick Wins
+  private personalizedGreeting: PersonalizedGreeting;
+  private proofSocialEngine: ProofSocialEngine;
 
   constructor(
     private wahaService: WahaService,
@@ -125,6 +131,11 @@ export class MessageProcessor {
     if (this.contextRetrieval && this.onboardingManager && this.intentAnalyzer) {
       console.log('🧠 Contexto contínuo e onboarding habilitados!');
     }
+
+    // ⚡ SPRINT 1: Quick Wins
+    this.personalizedGreeting = new PersonalizedGreeting();
+    this.proofSocialEngine = new ProofSocialEngine(wahaService);
+    console.log('⚡ Sprint 1 Quick Wins habilitados (saudação + prova social)!');
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO com Análise Psicológica inicializado!');
   }
@@ -593,6 +604,14 @@ export class MessageProcessor {
       //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL + PSICOLÓGICO + CONTEXTO COMPLETO
       console.log('🤖 Gerando resposta com IA comportamental + psicológica + contexto completo...');
 
+      // ⚡ SPRINT 1: Verifica se deve usar SAUDAÇÃO PERSONALIZADA
+      const personalizedGreeting = this.personalizedGreeting.generateGreeting(fullContext, profile, body);
+      if (personalizedGreeting) {
+        console.log(`⚡ SAUDAÇÃO PERSONALIZADA detectada: "${personalizedGreeting}"`);
+        // Usa saudação personalizada ao invés da IA
+        // Continua fluxo normal depois
+      }
+
       // Formata contexto completo para o prompt
       let contextPrompt = '';
       if (fullContext && this.contextRetrieval) {
@@ -603,7 +622,8 @@ export class MessageProcessor {
         }
       }
 
-      const response = await this.openaiService.generateResponse(chatId, body, {
+      // Se tem saudação personalizada, usa ela. Senão, gera com IA
+      const response = personalizedGreeting || await this.openaiService.generateResponse(chatId, body, {
         engagementScore: engagement.score,
         sentiment: sentiment.type,
         urgency: sentiment.type === 'urgente' ? 'alta' : 'normal',
@@ -630,6 +650,26 @@ export class MessageProcessor {
         console.log(`💰 Oportunidade de conversão detectada! Score: ${conversionOpp.score}`);
         console.log(`📈 Ação: ${conversionOpp.suggestedAction}`);
         await this.memoryDB.saveConversionOpportunity({ chatId, ...conversionOpp });
+      }
+
+      // ⚡ SPRINT 1: PROVA SOCIAL (se cliente demonstrou interesse)
+      if (intentAnalysis && journeyAnalysis) {
+        const shouldSendProof = this.proofSocialEngine.shouldSendProof(
+          intentAnalysis.intent,
+          journeyAnalysis.currentStage
+        );
+
+        if (shouldSendProof) {
+          const detectedService = this.proofSocialEngine.detectServiceFromMessage(body);
+          if (detectedService) {
+            console.log(`📸 Detectado interesse em: ${detectedService} - Enviando prova social`);
+
+            // Envia prova social (não bloqueia fluxo)
+            this.proofSocialEngine.sendProof(chatId, detectedService, 'stat-only').catch(error => {
+              console.warn('⚠️ Erro ao enviar prova social:', error);
+            });
+          }
+        }
       }
 
       // 💳 OFERTA DE DESCONTO PIX (se habilitado e detectado intenção de compra)

@@ -12,6 +12,7 @@ import { PixDiscountManager } from './services/PixDiscountManager';
 import { ContextRetrievalService } from './services/ContextRetrievalService';
 import { OnboardingManager } from './services/OnboardingManager';
 import { IntentAnalyzer } from './services/IntentAnalyzer';
+import { InstantAcknowledgment } from './services/InstantAcknowledgment';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -84,6 +85,11 @@ const contextRetrieval = new ContextRetrievalService(memoryDB);
 const onboardingManager = new OnboardingManager(memoryDB);
 const intentAnalyzer = new IntentAnalyzer();
 console.log('✅ Serviços de contexto inicializados!\n');
+
+// ⚡ NOVO: Resposta instantânea (<1s)
+console.log('⚡ Inicializando resposta instantânea...');
+const instantAck = new InstantAcknowledgment(wahaService);
+console.log('✅ Resposta instantânea configurada!\n');
 
 const messageProcessor = new MessageProcessor(
   wahaService,
@@ -239,6 +245,20 @@ app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
         console.log(`👤 Nome do contato detectado: ${contactName}`);
         // Adiciona ao payload para uso posterior
         payload.contactName = contactName;
+      }
+
+      // ⚡ NOVO: Envia resposta INSTANTÂNEA (antes de processar)
+      if (instantAck.shouldSendInstantReply(payload)) {
+        (async () => {
+          try {
+            const chatId = payload.from;
+            const profile = await memoryDB.getOrCreateProfile(chatId);
+            await instantAck.sendInstantReply(chatId, profile);
+          } catch (error) {
+            console.error('⚠️ Erro ao enviar resposta instantânea:', error);
+            // Não bloqueia fluxo se falhar
+          }
+        })();
       }
 
       // Não aguarda para não bloquear o webhook

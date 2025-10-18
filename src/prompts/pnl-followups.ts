@@ -1,6 +1,7 @@
 /**
- * 🔥 FOLLOW-UPS IMEDIATOS COM PNL CRESCENTE
- * Sistema anti-abandono com choque de realidade
+ * 🔥 FOLLOW-UPS ULTRA-RÁPIDOS COM PNL CRESCENTE
+ * Sistema anti-abandono ACELERADO: 30s, 2min, 5min, 10min, 20min
+ * NOVO: Recupera clientes em até 20min (antes: 67min)
  */
 
 export interface FollowUpMessage {
@@ -12,92 +13,93 @@ export interface FollowUpMessage {
 }
 
 /**
- * 5 NÍVEIS DE FOLLOW-UP (67 minutos total)
- * Intensidade PNL crescente: Suave → Intenso → Choque de Realidade
+ * 5 NÍVEIS DE FOLLOW-UP (20 minutos total - ACELERADO!)
+ * Sequência: 30s → 2min → 5min → 10min → 20min
+ * Intensidade PNL crescente: Suave → Urgência → FOMO
  */
 export const IMMEDIATE_FOLLOWUPS: FollowUpMessage[] = [
   // ═══════════════════════════════════════════════════════════
-  // NÍVEL 1: 2 MINUTOS - Reforço Suave
+  // NÍVEL 1: 30 SEGUNDOS - Reforço Ultra-Rápido (NOVO!)
   // ═══════════════════════════════════════════════════════════
   {
     level: 1,
-    delay: 2,
+    delay: 0.5, // 30 segundos!
     intensity: 'low',
-    pnlTechnique: 'Rapport + Pergunta aberta',
+    pnlTechnique: 'Rapport + Disponibilidade',
     messages: [
-      'e aí? conseguiu pensar melhor?',
-      'tá em dúvida em alguma coisa?',
-      'quer que eu explique melhor algo?',
-      'surgiu alguma dúvida?',
-      'precisa de mais alguma info?'
+      'ainda ta ai?',
+      'deu algum problema?',
+      'ta em duvida?',
+      'precisa de ajuda?',
+      'quer que eu explique melhor?'
     ]
   },
 
   // ═══════════════════════════════════════════════════════════
-  // NÍVEL 2: 5 MINUTOS - PNL Início (Perda/Consequência)
+  // NÍVEL 2: 2 MINUTOS - Suporte Ativo (ACELERADO!)
   // ═══════════════════════════════════════════════════════════
   {
     level: 2,
-    delay: 5,
-    intensity: 'medium',
-    pnlTechnique: 'Perda + Consequência',
+    delay: 2, // Era 5min, agora 2min
+    intensity: 'low',
+    pnlTechnique: 'Empatia + Facilitação',
     messages: [
-      'oi! não deixa passar essa oportunidade\nquanto mais esperar, mais difícil fica resolver',
-      'olha, não é bom deixar pra depois\no problema pode piorar se não cuidar logo',
-      'se não tratar agora, pode ficar mais sério\nmelhor prevenir né?',
-      'quanto antes cuidar, melhor pro seu pet\ndeixa eu te ajudar nisso',
-      'não vale arriscar a saúde dele\nvamos resolver isso hoje?'
+      'precisa de ajuda pra decidir?',
+      'quer que eu te ligue pra explicar melhor?',
+      'tem alguma duvida especifica?',
+      'se quiser posso te passar mais info',
+      'ta precisando de alguma coisa?'
     ]
   },
 
   // ═══════════════════════════════════════════════════════════
-  // NÍVEL 3: 10 MINUTOS - PNL Intenso (Consequência + Urgência)
+  // NÍVEL 3: 5 MINUTOS - Urgência Leve (ACELERADO!)
   // ═══════════════════════════════════════════════════════════
   {
     level: 3,
-    delay: 10,
-    intensity: 'high',
-    pnlTechnique: 'Consequência + Urgência + Perda',
+    delay: 5, // Era 10min, agora 5min
+    intensity: 'medium',
+    pnlTechnique: 'Urgência + Benefício',
     messages: [
-      'fica tranquila, mas isso é sério\nse deixar pra depois seu pet vai sofrer mais\nvamos resolver agora?',
-      'olha, to preocupada\nesse problema não vai sumir sozinho\nquanto antes tratar, melhor\ntenho vaga agora ainda',
-      'não quero te pressionar mas...\nse esperar muito pode complicar\ne aí fica mais caro e sofrido pra ele\nmelhor agendar logo né?',
-      'pensa bem: cada dia que passa piora\nseu pet tá desconfortável\ndá pra resolver isso HOJE\nque tal?',
-      'sinceramente? tá na hora de decidir\nseu pet precisa disso\nnão dá pra ficar adiando\nvamos fazer hoje?'
+      'sem problema! se precisar to aqui\na agenda fecha as 18h hj',
+      'olha, to com 2 horarios livres ainda\nmas ta enchendo rapido',
+      'quanto antes resolver melhor né\nquer que eu reserve um horario?',
+      'nao fica na duvida\nme chama que a gente resolve rapido',
+      'qualquer coisa me fala\nmas nao dexa pra depois viu'
     ]
   },
 
   // ═══════════════════════════════════════════════════════════
-  // NÍVEL 4: 20 MINUTOS - FOMO + Prova Social
+  // NÍVEL 4: 10 MINUTOS - PNL Médio (ACELERADO!)
   // ═══════════════════════════════════════════════════════════
   {
     level: 4,
-    delay: 20,
+    delay: 10, // Era 20min, agora 10min
     intensity: 'high',
-    pnlTechnique: 'FOMO + Prova Social + Escassez',
+    pnlTechnique: 'Escassez + Perda',
     messages: [
-      'olha, acabei de agendar 3 pets com o mesmo problema\ntô com SÓ 2 vagas livres hoje\ndepois só semana que vem\nseu pet vai esperar?',
-      'atenção: agenda tá lotando RÁPIDO\noutros tutores já garantiram vaga\nrestam pouquíssimos horários\nnão perde!',
-      'sendo sincera contigo:\n5 pessoas reservaram hoje já\nse não garantir agora, vai ficar sem\ne seu pet precisa disso',
-      'última chance de pegar vaga hoje\namanhã já tá LOTADO\nvários clientes confirmaram\nnão deixa pra depois',
-      'olha só: enquanto a gente conversa\noutros tão agendando\nficam só 2 horários livres\nvai perder essa?'
+      'oi! nao deixa passar essa oportunidade\nquanto mais esperar mais dificil fica',
+      'olha nao é bom deixar pra depois\no problema pode piorar se nao cuidar logo',
+      'se nao tratar agora pode ficar mais serio\nmelhor prevenir ne?',
+      'quanto antes cuidar melhor pro seu pet\ndeixa eu te ajudar nisso',
+      'ta lotando rapido hj\nultimos horarios livres'
     ]
   },
 
   // ═══════════════════════════════════════════════════════════
-  // NÍVEL 5: 30 MINUTOS - CHOQUE DE REALIDADE (PNL MÁXIMO)
+  // NÍVEL 5: 20 MINUTOS - FOMO Forte (ACELERADO!)
   // ═══════════════════════════════════════════════════════════
   {
     level: 5,
-    delay: 30,
+    delay: 20, // Era 30min, agora 20min
     intensity: 'extreme',
-    pnlTechnique: 'Choque de Realidade + Perda Total + Última Chance',
+    pnlTechnique: 'FOMO + Prova Social + Escassez',
     messages: [
-      'ÚLTIMA VAGA MESMO!\ndepois só SEMANA QUE VEM\nseu pet vai continuar sofrendo uma semana inteira?\nnão dá né? vamos resolver AGORA\nme confirma?',
-      'olha, vou ser MUITO sincera:\nacabou as vagas de hoje\nse não agendar AGORA\nseu pet vai ficar mais 7 dias assim\nvocê realmente quer isso pra ele?',
-      'tá arriscando a saúde do seu pet\npor hesitar e não decidir\nele tá desconfortável AGORA\ne só você pode resolver\nÚLTIMA CHANCE de hoje\nsim ou não?',
-      'sinceridade total:\noutros tutores AGIRAM\nvocê tá perdendo a vaga\ne seu pet tá pagando o preço\nnão dá mais pra esperar\nÚLTIMA vaga livre\nconfirma AGORA ou perde',
-      'olha, essa é minha última tentativa\nseu pet PRECISA disso\nvocê SABE que precisa\nmas tá deixando passar\nacabou a agenda de hoje\ndepois só segunda\nvai mesmo deixar ele sofrer o fim de semana todo?\nme responde AGORA'
+      'olha acabei de agendar 3 pets com o mesmo problema\nto com SO 2 vagas livres hj\ndepois so semana q vem\nseu pet vai esperar?',
+      'sendo sincera:\n5 pessoas reservaram hj ja\nse nao garantir agora vai ficar sem\ne seu pet precisa disso',
+      'ultima chance de pegar vaga hj\namanha ja ta LOTADO\nvarios clientes confirmaram\nnao deixa pra depois',
+      'olha so: enquanto a gente conversa\noutros tao agendando\nficam so 2 horarios livres\nvai perder essa?',
+      'ULTIMA VAGA MESMO!\ndepois so SEMANA QUE VEM\nnao dá né? vamos resolver AGORA\nme confirma?'
     ]
   }
 ];
