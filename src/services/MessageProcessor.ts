@@ -537,7 +537,7 @@ export class MessageProcessor {
 
       // 🔟 SALVA MENSAGEM NO HISTÓRICO (com messageId para citações)
       const whatsappMessageId = message.id || message._data?.id?.id || null;
-      this.memoryDB.saveMessage(chatId, 'user', body, sentiment.type, engagement.score, whatsappMessageId);
+      await this.memoryDB.saveMessage(chatId, 'user', body, sentiment.type, engagement.score, whatsappMessageId);
 
       // 1️⃣1️⃣ DELAY E MARCA COMO LIDA (refinado por urgência)
       let readDelay = 3000; // Padrão: 3s
@@ -760,7 +760,7 @@ export class MessageProcessor {
       }
 
       // 1️⃣8️⃣ SALVA RESPOSTA NO HISTÓRICO
-      this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
+      await this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
 
       // 1️⃣9️⃣ 🔥 INICIA FOLLOW-UPS IMEDIATOS SE NECESSÁRIO
       if (this.immediateFollowUpManager.shouldStartFollowUps(profile)) {

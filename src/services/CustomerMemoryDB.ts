@@ -423,7 +423,15 @@ export class CustomerMemoryDB {
   /**
    * Salva mensagem no histórico
    */
-  public saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): void {
+  public async saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
+    if (this.dbType === 'supabase') {
+      return this.saveMessageSupabase(chatId, role, content, sentiment, engagementScore, messageId);
+    } else {
+      return this.saveMessageSQLite(chatId, role, content, sentiment, engagementScore, messageId);
+    }
+  }
+
+  private saveMessageSQLite(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): void {
     const db = this.requireSQLite();
     db.prepare(`
       INSERT INTO conversation_history (chat_id, role, content, sentiment, engagement_score, message_id)
@@ -441,6 +449,30 @@ export class CustomerMemoryDB {
         LIMIT 50
       )
     `).run(chatId, chatId);
+  }
+
+  private async saveMessageSupabase(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
+    if (!this.supabase) throw new Error('Supabase not initialized');
+
+    try {
+      // Insere mensagem
+      await this.supabase.insert('conversation_history', {
+        chat_id: chatId,
+        role,
+        content,
+        sentiment: sentiment || null,
+        engagement_score: engagementScore || null,
+        message_id: messageId || null
+      });
+
+      // Mantém apenas últimas 50 mensagens por chat (limpa mensagens antigas)
+      // TODO: Implementar limpeza automática no Supabase
+      // Por enquanto, deixa acumular (pode criar função postgres ou cron job depois)
+
+    } catch (error) {
+      console.error('❌ Erro ao salvar mensagem no Supabase:', error);
+      throw error;
+    }
   }
 
   /**

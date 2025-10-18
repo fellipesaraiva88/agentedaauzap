@@ -108,9 +108,10 @@ IMPORTANTE:
    * Verifica se uma mensagem contém foto/imagem
    */
   public hasPhoto(message: any): boolean {
+    // Verifica múltiplos indicadores de foto/imagem
     return message.hasMedia === true ||
            message.type === 'image' ||
-           message.media !== undefined ||
+           (message.media && message.media.mimetype && message.media.mimetype.startsWith('image/')) ||
            (message._data && message._data.type === 'image');
   }
 
