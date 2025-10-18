@@ -37,8 +37,18 @@ export class CustomerMemoryDB {
     const schemaPath = path.join(__dirname, '../database/schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
 
-    // Executa o schema
+    // Executa o schema principal
     this.db.exec(schema);
+
+    // Executa migration de pagamentos
+    try {
+      const paymentsPath = path.join(__dirname, '../database/payments.sql');
+      const paymentsSchema = fs.readFileSync(paymentsPath, 'utf-8');
+      this.db.exec(paymentsSchema);
+      console.log('✅ Tabela payments criada/atualizada');
+    } catch (error) {
+      console.log('⚠️ Schema de payments não encontrado (será criado ao usar pagamentos)');
+    }
   }
 
   /**
@@ -497,6 +507,140 @@ export class CustomerMemoryDB {
       `).all() as any[];
     } catch (error) {
       return [];
+    }
+  }
+
+  /**
+   * ====================================
+   * MÉTODOS DE PAGAMENTO (ASAAS PIX)
+   * ====================================
+   */
+
+  /**
+   * Salva pagamento no banco
+   */
+  public savePayment(payment: {
+    chatId: string;
+    paymentId: string;
+    provider: string;
+    amount: number;
+    originalAmount?: number;
+    discountAmount?: number;
+    status: string;
+    method: string;
+    description?: string;
+    paymentUrl?: string;
+  }): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO payments (
+          chat_id, payment_id, provider, amount, original_amount,
+          discount_amount, status, method, description, payment_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        payment.chatId,
+        payment.paymentId,
+        payment.provider,
+        payment.amount,
+        payment.originalAmount || payment.amount,
+        payment.discountAmount || 0,
+        payment.status,
+        payment.method,
+        payment.description || null,
+        payment.paymentUrl || null
+      );
+
+      console.log(`💳 Pagamento salvo: ${payment.paymentId} (${payment.status})`);
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar pagamento:', error.message);
+    }
+  }
+
+  /**
+   * Atualiza status de pagamento
+   */
+  public updatePaymentStatus(paymentId: string, status: string): void {
+    try {
+      const confirmedAt = status === 'confirmed' ? Date.now() : null;
+
+      this.db.prepare(`
+        UPDATE payments
+        SET status = ?, confirmed_at = ?
+        WHERE payment_id = ?
+      `).run(status, confirmedAt, paymentId);
+
+      console.log(`💳 Status atualizado: ${paymentId} → ${status}`);
+    } catch (error: any) {
+      console.error('❌ Erro ao atualizar status:', error.message);
+    }
+  }
+
+  /**
+   * Busca pagamento por ID
+   */
+  public getPaymentById(paymentId: string): any {
+    try {
+      return this.db.prepare(`
+        SELECT * FROM payments WHERE payment_id = ?
+      `).get(paymentId);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Busca pagamentos de um cliente
+   */
+  public getPaymentsByCustomer(chatId: string): any[] {
+    try {
+      return this.db.prepare(`
+        SELECT * FROM payments
+        WHERE chat_id = ?
+        ORDER BY created_at DESC
+      `).all(chatId) as any[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Busca pagamentos pendentes (para monitoramento)
+   */
+  public getPendingPayments(): any[] {
+    try {
+      return this.db.prepare(`
+        SELECT * FROM payments
+        WHERE status = 'pending'
+        ORDER BY created_at DESC
+      `).all() as any[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Analytics de pagamentos
+   */
+  public getPaymentAnalytics(chatId?: string): any {
+    try {
+      if (chatId) {
+        return this.db.prepare(`
+          SELECT * FROM payment_analytics WHERE chat_id = ?
+        `).get(chatId);
+      } else {
+        return this.db.prepare(`
+          SELECT
+            COUNT(DISTINCT chat_id) as total_customers,
+            SUM(total_payments) as total_payments,
+            SUM(confirmed_payments) as confirmed_payments,
+            SUM(total_revenue) as total_revenue,
+            SUM(total_discounts_given) as total_discounts_given,
+            AVG(avg_ticket) as avg_ticket
+          FROM payment_analytics
+        `).get();
+      }
+    } catch (error) {
+      return null;
     }
   }
 

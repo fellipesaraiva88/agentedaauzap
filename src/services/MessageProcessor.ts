@@ -21,6 +21,10 @@ import { EmotionalIntelligence } from './EmotionalIntelligence';
 import { ConversationFlowOptimizer } from './ConversationFlowOptimizer';
 import { MessageAuditor } from './MessageAuditor';
 import { ImmediateFollowUpManager } from './ImmediateFollowUpManager';
+import { PixDiscountManager } from './PixDiscountManager';
+import { ContextRetrievalService } from './ContextRetrievalService';
+import { OnboardingManager } from './OnboardingManager';
+import { IntentAnalyzer } from './IntentAnalyzer';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -62,13 +66,25 @@ export class MessageProcessor {
   // Módulo de buffer de mensagens (concatenação)
   private messageBuffer: MessageBuffer;
 
+  // 💳 Módulo de pagamentos PIX (opcional)
+  private pixDiscountManager?: PixDiscountManager;
+
+  // 🆕 Módulos de contexto e onboarding
+  private contextRetrieval?: ContextRetrievalService;
+  private onboardingManager?: OnboardingManager;
+  private intentAnalyzer?: IntentAnalyzer;
+
   constructor(
     private wahaService: WahaService,
     private openaiService: OpenAIService,
     private humanDelay: HumanDelay,
     private memoryDB: CustomerMemoryDB,
     private audioTranscription: AudioTranscriptionService,
-    private openaiApiKey: string
+    private openaiApiKey: string,
+    pixDiscountManager?: PixDiscountManager,
+    contextRetrieval?: ContextRetrievalService,
+    onboardingManager?: OnboardingManager,
+    intentAnalyzer?: IntentAnalyzer
   ) {
     this.processingMessages = new Set();
     this.lastMessageTimestamps = new Map();
@@ -94,6 +110,20 @@ export class MessageProcessor {
     this.personalityProfiler = new PersonalityProfiler();
     this.emotionalIntelligence = new EmotionalIntelligence();
     this.flowOptimizer = new ConversationFlowOptimizer();
+
+    // 💳 Pagamentos PIX (se configurado)
+    this.pixDiscountManager = pixDiscountManager;
+    if (this.pixDiscountManager) {
+      console.log('💳 Pagamentos PIX habilitados no MessageProcessor');
+    }
+
+    // 🆕 Contexto e Onboarding
+    this.contextRetrieval = contextRetrieval;
+    this.onboardingManager = onboardingManager;
+    this.intentAnalyzer = intentAnalyzer;
+    if (this.contextRetrieval && this.onboardingManager && this.intentAnalyzer) {
+      console.log('🧠 Contexto contínuo e onboarding habilitados!');
+    }
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO com Análise Psicológica inicializado!');
   }
@@ -215,6 +245,69 @@ export class MessageProcessor {
       // 1️⃣ CARREGA/CRIA PERFIL DO USUÁRIO
       const profile = this.memoryDB.getOrCreateProfile(chatId);
       console.log(`👤 Perfil carregado: ${profile.nome || 'novo cliente'}`);
+
+      // 🆕 1.1️⃣ CARREGA CONTEXTO COMPLETO DO CLIENTE
+      let fullContext = null;
+      if (this.contextRetrieval) {
+        try {
+          fullContext = await this.contextRetrieval.getFullContext(chatId);
+          console.log('\n🧠 ========================================');
+          console.log('🧠 CONTEXTO RECUPERADO');
+          console.log('🧠 ========================================');
+          console.log(`   Tutor: ${fullContext.tutor?.nome || 'Novo'}`);
+          console.log(`   Pets: ${fullContext.pets.length}`);
+          console.log(`   Cliente: ${fullContext.flags.clienteNovo ? 'NOVO' : 'RETORNANDO'}`);
+          if (fullContext.flags.clienteVip) console.log('   ⭐ CLIENTE VIP');
+          if (fullContext.flags.clienteInativo) console.log('   ⚠️ CLIENTE INATIVO');
+          if (!fullContext.flags.onboardingCompleto) console.log('   📝 ONBOARDING PENDENTE');
+          console.log('🧠 ========================================\n');
+        } catch (error) {
+          console.warn('⚠️ Erro ao carregar contexto - continuando sem contexto:', error);
+        }
+      }
+
+      // 🆕 1.2️⃣ VERIFICA SE PRECISA DE ONBOARDING
+      if (this.onboardingManager && fullContext && !fullContext.flags.onboardingCompleto) {
+        const needsOnboarding = this.onboardingManager.needsOnboarding(chatId);
+
+        if (needsOnboarding) {
+          console.log('\n🎓 ========================================');
+          console.log('🎓 ONBOARDING NECESSÁRIO');
+          console.log('🎓 ========================================\n');
+
+          const result = this.onboardingManager.processOnboardingMessage(chatId, body);
+
+          if (result.shouldContinueOnboarding && result.nextQuestion) {
+            // Envia próxima pergunta do onboarding
+            const typingTime = this.humanDelay.calculateAdaptiveTypingTime(
+              result.nextQuestion,
+              2000,
+              new Date().getHours()
+            );
+
+            await this.wahaService.sendHumanizedMessage(chatId, result.nextQuestion, typingTime);
+
+            this.processingMessages.delete(messageId);
+            setTimeout(async () => {
+              await this.wahaService.setPresence(chatId, false);
+            }, 25000);
+
+            return; // Finaliza - aguarda próxima resposta do onboarding
+          }
+
+          if (result.completed) {
+            console.log('✅ Onboarding completo! Continuando para fluxo normal...\n');
+            // Recarrega contexto com dados atualizados
+            if (this.contextRetrieval) {
+              try {
+                fullContext = await this.contextRetrieval.getFullContext(chatId);
+              } catch (error) {
+                console.warn('⚠️ Erro ao recarregar contexto:', error);
+              }
+            }
+          }
+        }
+      }
 
       // 📸 PROCESSA FOTO DO PET SE NECESSÁRIO
       // 🔍 DEBUG: Loga estrutura da mensagem para diagnóstico
@@ -402,6 +495,34 @@ export class MessageProcessor {
       console.log('🎭 ANÁLISE PSICOLÓGICA CONCLUÍDA');
       console.log('🎭 ========================================\n');
 
+      // 🆕 8.5️⃣ ANÁLISE DE INTENÇÃO E JORNADA
+      let intentAnalysis = null;
+      let journeyAnalysis = null;
+
+      if (this.intentAnalyzer) {
+        try {
+          intentAnalysis = this.intentAnalyzer.analyzeIntent(body, profile);
+          journeyAnalysis = this.intentAnalyzer.analyzeJourney(profile);
+
+          console.log('\n🎯 ========================================');
+          console.log('🎯 ANÁLISE DE INTENÇÃO E JORNADA');
+          console.log('🎯 ========================================');
+          console.log(`   Intenção: ${intentAnalysis.intent} (${intentAnalysis.confidence}%)`);
+          console.log(`   Urgência: ${intentAnalysis.urgency.toUpperCase()}`);
+          console.log(`   Jornada: ${journeyAnalysis.currentStage} → ${journeyAnalysis.nextStage}`);
+          console.log(`   Pronto para avançar: ${journeyAnalysis.readyToAdvance ? 'SIM' : 'NÃO'}`);
+          if (intentAnalysis.suggestedAction) {
+            console.log(`   💡 Ação: ${intentAnalysis.suggestedAction}`);
+          }
+          if (journeyAnalysis.blockers.length > 0) {
+            console.log(`   ⚠️ Bloqueios: ${journeyAnalysis.blockers.join(', ')}`);
+          }
+          console.log('🎯 ========================================\n');
+        } catch (error) {
+          console.warn('⚠️ Erro na análise de intenção:', error);
+        }
+      }
+
       // 9️⃣ DECISÃO DE REAÇÃO (antes de processar resposta)
       const reactionDecision = this.reactionDecider.decide(message, sentiment.type, hasExtractedInfo);
       if (reactionDecision.shouldReact) {
@@ -459,20 +580,38 @@ export class MessageProcessor {
       await new Promise(resolve => setTimeout(resolve, readDelay));
       await this.wahaService.markAsRead(chatId);
 
-      //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL + PSICOLÓGICO
-      console.log('🤖 Gerando resposta com IA comportamental + psicológica...');
+      //🔟 GERA RESPOSTA COM CONTEXTO COMPORTAMENTAL + PSICOLÓGICO + CONTEXTO COMPLETO
+      console.log('🤖 Gerando resposta com IA comportamental + psicológica + contexto completo...');
+
+      // Formata contexto completo para o prompt
+      let contextPrompt = '';
+      if (fullContext && this.contextRetrieval) {
+        try {
+          contextPrompt = this.contextRetrieval.formatContextForPrompt(fullContext);
+        } catch (error) {
+          console.warn('⚠️ Erro ao formatar contexto:', error);
+        }
+      }
+
       const response = await this.openaiService.generateResponse(chatId, body, {
         engagementScore: engagement.score,
         sentiment: sentiment.type,
         urgency: sentiment.type === 'urgente' ? 'alta' : 'normal',
         petName: profile.petNome,
         userName: profile.nome,
-        // 🆕 NOVOS: Contexto psicológico profundo
+        // Contexto psicológico profundo
         archetype: personalityProfile.archetype,
         emotion: emotionalAnalysis.primaryEmotion,
         emotionIntensity: emotionalAnalysis.intensity,
         conversationStage: flowAnalysis.currentStage,
-        needsValidation: emotionalAnalysis.recommendedResponse.validation
+        needsValidation: emotionalAnalysis.recommendedResponse.validation,
+        // 🆕 CONTEXTO COMPLETO CROSS-SESSION
+        fullContext: contextPrompt,
+        intent: intentAnalysis?.intent,
+        journeyStage: journeyAnalysis?.currentStage,
+        isNewClient: fullContext?.flags.clienteNovo,
+        isVipClient: fullContext?.flags.clienteVip,
+        isInactive: fullContext?.flags.clienteInativo
       });
 
       // 1️⃣1️⃣ ANÁLISE DE CONVERSÃO
@@ -481,6 +620,89 @@ export class MessageProcessor {
         console.log(`💰 Oportunidade de conversão detectada! Score: ${conversionOpp.score}`);
         console.log(`📈 Ação: ${conversionOpp.suggestedAction}`);
         this.memoryDB.saveConversionOpportunity({ chatId, ...conversionOpp });
+      }
+
+      // 💳 OFERTA DE DESCONTO PIX (se habilitado e detectado intenção de compra)
+      if (this.pixDiscountManager?.shouldOfferPixDiscount(body, profile)) {
+        console.log('\n💳 ========================================');
+        console.log('💳 INTENÇÃO DE COMPRA DETECTADA');
+        console.log('💳 Preparando oferta de desconto PIX...');
+        console.log('💳 ========================================\n');
+
+        // Aqui você pode customizar os itens baseado no contexto da conversa
+        // Por exemplo, extrair do response da IA ou do histórico
+        // Por enquanto, vamos usar um exemplo genérico que você pode ajustar
+
+        // EXEMPLO: Detecta valor mencionado na mensagem
+        const extractedValue = this.pixDiscountManager.extractValueFromMessage(body);
+
+        if (extractedValue && extractedValue > 0) {
+          // Cria oferta de desconto
+          const offer = this.pixDiscountManager.createPixOffer([{
+            name: 'Produto/Serviço',
+            value: extractedValue
+          }]);
+
+          // Gera mensagem de oferta
+          const offerMessage = this.pixDiscountManager.formatOfferMessage(offer, profile.nome);
+
+          // Salva oferta pendente
+          this.pixDiscountManager.savePendingOffer(chatId, offer);
+
+          // Envia oferta de desconto
+          await this.wahaService.sendMessage(chatId, offerMessage);
+          console.log(`💳 Oferta enviada: 10% desconto (${extractedValue} → ${offer.finalValue})`);
+
+          // Finaliza processamento (não envia resposta da IA)
+          this.processingMessages.delete(messageId);
+          setTimeout(async () => {
+            await this.wahaService.setPresence(chatId, false);
+          }, 30000);
+
+          return; // IMPORTANTE: Para processamento aqui
+        } else {
+          // Se não detectou valor, apenas loga e continua com resposta normal
+          console.log('💡 Intenção de compra detectada mas sem valor específico - continuando com resposta normal');
+        }
+      }
+
+      // Se cliente confirmar desconto PIX ("sim", "quero", "pode mandar")
+      if (this.pixDiscountManager?.hasPendingOffer(chatId)) {
+        const confirmationSignals = ['sim', 'quero', 'pode', 'manda', 'fecha', 'beleza', 'ok'];
+        const hasConfirmation = confirmationSignals.some(signal => body.toLowerCase().includes(signal));
+
+        if (hasConfirmation) {
+          console.log('\n💳 ========================================');
+          console.log('💳 CLIENTE CONFIRMOU DESCONTO PIX');
+          console.log('💳 Gerando cobrança no Asaas...');
+          console.log('💳 ========================================\n');
+
+          const pendingOffer = this.pixDiscountManager.getPendingOffer(chatId);
+          if (pendingOffer) {
+            try {
+              const { payment, message: pixMessage } = await this.pixDiscountManager.generatePixPayment(
+                chatId,
+                profile,
+                pendingOffer
+              );
+
+              // Envia link de pagamento
+              await this.wahaService.sendMessage(chatId, pixMessage);
+              console.log(`💳 Link PIX enviado: ${payment.invoiceUrl}`);
+
+              // Finaliza processamento
+              this.processingMessages.delete(messageId);
+              setTimeout(async () => {
+                await this.wahaService.setPresence(chatId, false);
+              }, 30000);
+
+              return; // IMPORTANTE: Para processamento aqui
+            } catch (error: any) {
+              console.error('❌ Erro ao gerar pagamento:', error.message);
+              // Continua com resposta normal em caso de erro
+            }
+          }
+        }
       }
 
       // 1️⃣2️⃣ APLICA IMPERFEIÇÕES HUMANAS (2% chance)

@@ -698,12 +698,19 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
       conversionScore?: number;
       petName?: string;
       userName?: string;
-      // 🆕 NOVOS: Contexto psicológico
+      // Contexto psicológico
       archetype?: string;
       emotion?: string;
       emotionIntensity?: number;
       conversationStage?: string;
       needsValidation?: boolean;
+      // 🆕 CONTEXTO COMPLETO CROSS-SESSION
+      fullContext?: string;
+      intent?: string;
+      journeyStage?: string;
+      isNewClient?: boolean;
+      isVipClient?: boolean;
+      isInactive?: boolean;
     }
   ): Promise<string> {
     try {
@@ -715,7 +722,29 @@ Agora responda ao cliente de forma natural, seguindo TODAS as regras acima.`),
       if (behavioralContext) {
         behavioralContextText = this.buildContextualPrompt(behavioralContext) || behavioralContextText;
 
-        // 🆕 INJETA MODO MARINA ESPECÍFICO se arquétipo detectado
+        // 🆕 ADICIONA CONTEXTO COMPLETO CROSS-SESSION (se disponível)
+        if (behavioralContext.fullContext) {
+          behavioralContextText += '\n\n' + behavioralContext.fullContext;
+        }
+
+        // 🆕 ADICIONA INTENÇÃO E JORNADA
+        if (behavioralContext.intent) {
+          behavioralContextText += `\n\n🎯 INTENÇÃO DO CLIENTE: ${behavioralContext.intent}`;
+          behavioralContextText += `\nJORNADA: ${behavioralContext.journeyStage || 'desconhecida'}`;
+        }
+
+        // 🆕 ADICIONA FLAGS IMPORTANTES
+        if (behavioralContext.isNewClient) {
+          behavioralContextText += `\n\n⚠️ CLIENTE NOVO - Seja acolhedora e explique processos`;
+        }
+        if (behavioralContext.isVipClient) {
+          behavioralContextText += `\n⭐ CLIENTE VIP - Tratamento premium e prioritário`;
+        }
+        if (behavioralContext.isInactive) {
+          behavioralContextText += `\n⚠️ CLIENTE INATIVO - Reaquecer relação com promoção especial`;
+        }
+
+        // INJETA MODO MARINA ESPECÍFICO se arquétipo detectado
         if (behavioralContext.archetype) {
           const marinaMode = getMarinaMode(behavioralContext.archetype as PersonalityArchetype);
           behavioralContextText += '\n\n' + marinaMode;

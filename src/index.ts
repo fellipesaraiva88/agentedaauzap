@@ -7,6 +7,11 @@ import { MessageProcessor } from './services/MessageProcessor';
 import { CustomerMemoryDB } from './services/CustomerMemoryDB';
 import { AudioTranscriptionService } from './services/AudioTranscriptionService';
 import { DatabaseMigration } from './services/DatabaseMigration';
+import { AsaasPaymentService } from './services/AsaasPaymentService';
+import { PixDiscountManager } from './services/PixDiscountManager';
+import { ContextRetrievalService } from './services/ContextRetrievalService';
+import { OnboardingManager } from './services/OnboardingManager';
+import { IntentAnalyzer } from './services/IntentAnalyzer';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -21,11 +26,27 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const GROQ_API_KEY = process.env.GROQ_API_KEY!;
 const DB_PATH = process.env.DB_PATH || './data/customers.db';
 
+// Configurações Asaas (opcional - controlado por flag)
+const ENABLE_PIX_PAYMENTS = process.env.ENABLE_PIX_PAYMENTS === 'true';
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
+const ASAAS_ENVIRONMENT = (process.env.ASAAS_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox';
+
 // Validações
 if (!WAHA_API_URL || !WAHA_API_KEY || !OPENAI_API_KEY || !GROQ_API_KEY) {
   console.error('❌ Erro: Variáveis de ambiente não configuradas!');
   console.error('Por favor, configure WAHA_API_URL, WAHA_API_KEY, OPENAI_API_KEY e GROQ_API_KEY no arquivo .env');
   process.exit(1);
+}
+
+// Valida configuração de PIX apenas se habilitado
+if (ENABLE_PIX_PAYMENTS) {
+  if (!ASAAS_API_KEY) {
+    console.warn('⚠️ ENABLE_PIX_PAYMENTS=true mas ASAAS_API_KEY não configurada');
+    console.warn('💡 Configure ASAAS_API_KEY no .env ou desabilite com ENABLE_PIX_PAYMENTS=false');
+  }
+} else {
+  console.log('ℹ️ Pagamentos PIX desabilitados (ENABLE_PIX_PAYMENTS=false)');
+  console.log('💡 Para habilitar, mude ENABLE_PIX_PAYMENTS=true no .env');
 }
 
 console.log('\n🚀 ========================================');
@@ -46,7 +67,36 @@ const wahaService = new WahaService(WAHA_API_URL, WAHA_API_KEY, WAHA_SESSION);
 const openaiService = new OpenAIService(OPENAI_API_KEY);
 const audioService = new AudioTranscriptionService(GROQ_API_KEY);
 const humanDelay = new HumanDelay();
-const messageProcessor = new MessageProcessor(wahaService, openaiService, humanDelay, memoryDB, audioService, OPENAI_API_KEY);
+
+// Inicializa serviços de pagamento (se habilitado)
+let asaasService: AsaasPaymentService | undefined;
+let pixDiscountManager: PixDiscountManager | undefined;
+
+if (ENABLE_PIX_PAYMENTS && ASAAS_API_KEY) {
+  asaasService = new AsaasPaymentService(ASAAS_API_KEY, ASAAS_ENVIRONMENT);
+  pixDiscountManager = new PixDiscountManager(asaasService, memoryDB);
+  console.log(`✅ Pagamentos PIX habilitados (Asaas ${ASAAS_ENVIRONMENT})`);
+}
+
+// 🆕 Inicializa serviços de contexto e onboarding
+console.log('🧠 Inicializando serviços de contexto...');
+const contextRetrieval = new ContextRetrievalService(memoryDB);
+const onboardingManager = new OnboardingManager(memoryDB);
+const intentAnalyzer = new IntentAnalyzer();
+console.log('✅ Serviços de contexto inicializados!\n');
+
+const messageProcessor = new MessageProcessor(
+  wahaService,
+  openaiService,
+  humanDelay,
+  memoryDB,
+  audioService,
+  OPENAI_API_KEY,
+  pixDiscountManager, // Pode ser undefined se não configurado
+  contextRetrieval,   // 🆕 Novo
+  onboardingManager,  // 🆕 Novo
+  intentAnalyzer      // 🆕 Novo
+);
 
 // Inicializa Express
 const app = express();
@@ -90,6 +140,64 @@ app.get('/stats', (req: Request, res: Response) => {
     messageProcessor: messageProcessor.getStats(),
     openai: openaiService.getStats(),
   });
+});
+
+/**
+ * Webhook para receber confirmações de pagamento do Asaas
+ */
+app.post('/webhook/asaas', async (req: Request, res: Response) => {
+  try {
+    // Responde imediatamente ao Asaas
+    res.status(200).json({ received: true });
+
+    // Verifica se pagamentos estão habilitados
+    if (!ENABLE_PIX_PAYMENTS) {
+      console.log('ℹ️ Webhook Asaas recebido mas pagamentos PIX estão desabilitados');
+      return;
+    }
+
+    console.log('\n💳 ========================================');
+    console.log('💳 WEBHOOK ASAAS RECEBIDO');
+    console.log('💳 ========================================');
+
+    if (!asaasService || !pixDiscountManager) {
+      console.warn('⚠️ Pagamentos não configurados - ignorando webhook');
+      return;
+    }
+
+    // Processa webhook
+    const webhookData = asaasService.processWebhook(req.body);
+    console.log(`📊 Evento: ${webhookData.event}`);
+    console.log(`💰 Pagamento: ${webhookData.paymentId}`);
+    console.log(`📌 Status: ${webhookData.status}`);
+    console.log(`💵 Valor: R$ ${webhookData.value}`);
+
+    // Se pagamento foi confirmado/recebido
+    if (webhookData.event === 'PAYMENT_RECEIVED' || webhookData.event === 'PAYMENT_CONFIRMED') {
+      const chatId = webhookData.externalReference;
+
+      if (chatId) {
+        console.log(`✅ Pagamento confirmado para ${chatId}`);
+
+        // Atualiza status no banco
+        const confirmationMessage = await pixDiscountManager.handlePaymentConfirmed(
+          webhookData.paymentId,
+          chatId
+        );
+
+        // Envia mensagem de confirmação para o cliente
+        await wahaService.sendMessage(chatId, confirmationMessage);
+        console.log(`📤 Confirmação enviada: "${confirmationMessage}"`);
+      } else {
+        console.warn('⚠️ Pagamento sem externalReference (chatId) - não é possível enviar confirmação');
+      }
+    }
+
+    console.log('💳 ========================================\n');
+
+  } catch (error) {
+    console.error('❌ Erro ao processar webhook Asaas:', error);
+  }
 });
 
 /**

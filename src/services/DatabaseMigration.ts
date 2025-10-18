@@ -193,6 +193,30 @@ export class DatabaseMigration {
   }
 
   /**
+   * Aplica migration do Knowledge Graph
+   */
+  private applyKnowledgeGraphMigration(): void {
+    console.log('🔧 Aplicando migration: Knowledge Graph...');
+
+    try {
+      const schemaPath = path.join(__dirname, '../database/knowledge_graph.sql');
+
+      if (!fs.existsSync(schemaPath)) {
+        console.log('⚠️ Schema knowledge_graph.sql não encontrado - pulando');
+        return;
+      }
+
+      const schema = fs.readFileSync(schemaPath, 'utf-8');
+      this.db.exec(schema);
+
+      console.log('✅ Knowledge Graph criado com sucesso!');
+    } catch (error: any) {
+      console.error('❌ Erro ao criar Knowledge Graph:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Executa todas as migrations pendentes
    */
   public runMigrations(): void {
@@ -205,6 +229,9 @@ export class DatabaseMigration {
     if (this.needsMessageIdMigration()) {
       this.applyMessageIdMigration();
     }
+
+    // Sempre tenta aplicar Knowledge Graph (usa IF NOT EXISTS)
+    this.applyKnowledgeGraphMigration();
 
     if (!this.needsPragmaticoMigration() && !this.needsMessageIdMigration()) {
       console.log('✅ Banco de dados já está atualizado!');
