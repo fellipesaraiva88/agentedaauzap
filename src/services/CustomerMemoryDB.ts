@@ -414,7 +414,7 @@ export class CustomerMemoryDB {
    * Adiciona tempo de resposta ao histórico
    */
   public async addResponseTime(chatId: string, responseTime: number): Promise<void> {
-    if (this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
       return this.addResponseTimeSupabase(chatId, responseTime);
     } else {
       return this.addResponseTimeSQLite(chatId, responseTime);
@@ -592,7 +592,7 @@ export class CustomerMemoryDB {
    * Salva mensagem no histórico
    */
   public async saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
-    if (this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
       return this.saveMessageSupabase(chatId, role, content, sentiment, engagementScore, messageId);
     } else {
       return this.saveMessageSQLite(chatId, role, content, sentiment, engagementScore, messageId);
@@ -653,7 +653,7 @@ export class CustomerMemoryDB {
     timestamp: number;
     sentiment?: string;
   }>> {
-    if (this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
       return this.getRecentMessagesWithIdsSupabase(chatId, limit);
     } else {
       return this.getRecentMessagesWithIdsSQLite(chatId, limit);
@@ -782,7 +782,7 @@ export class CustomerMemoryDB {
    * Salva oportunidade de conversão
    */
   public async saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
-    if (this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
       return this.saveConversionOpportunitySupabase(opportunity);
     } else {
       return this.saveConversionOpportunitySQLite(opportunity);
