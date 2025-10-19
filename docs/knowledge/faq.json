@@ -1,0 +1,110 @@
+[
+  {
+    "title": "Horário de Funcionamento",
+    "content": "O Saraiva Pets funciona de segunda a sexta das 8h às 18h, e aos sábados das 8h às 14h. Domingos e feriados estamos fechados. Para agendamentos urgentes, entre em contato pelo WhatsApp.",
+    "category": "faq",
+    "subcategory": "horario"
+  },
+  {
+    "title": "Localização e Contato",
+    "content": "Estamos localizados na Rua das Flores, 123 - Centro. Para agendamentos e dúvidas, fale com a Marina pelo WhatsApp (11) 98765-4321. Também atendemos por telefone no (11) 3456-7890.",
+    "category": "faq",
+    "subcategory": "contato"
+  },
+  {
+    "title": "Preço Banho - Cães Pequeno Porte",
+    "content": "Banho para cães de pequeno porte (até 10kg): R$ 50,00. Inclui banho com produtos premium, secagem, limpeza de ouvidos e corte de unhas. Duração aproximada: 1 hora.",
+    "category": "faq",
+    "subcategory": "preco-banho"
+  },
+  {
+    "title": "Preço Banho - Cães Médio Porte",
+    "content": "Banho para cães de médio porte (10-25kg): R$ 80,00. Inclui banho com produtos premium, secagem, limpeza de ouvidos e corte de unhas. Duração aproximada: 1h30.",
+    "category": "faq",
+    "subcategory": "preco-banho"
+  },
+  {
+    "title": "Preço Banho - Cães Grande Porte",
+    "content": "Banho para cães de grande porte (acima de 25kg): R$ 120,00. Inclui banho com produtos premium, secagem, limpeza de ouvidos e corte de unhas. Duração aproximada: 2 horas.",
+    "category": "faq",
+    "subcategory": "preco-banho"
+  },
+  {
+    "title": "Preço Banho - Gatos",
+    "content": "Banho para gatos: R$ 70,00. Utilizamos produtos específicos para felinos, com técnicas especiais para reduzir o estresse. Inclui secagem, limpeza de ouvidos e corte de unhas. Duração: 1 hora.",
+    "category": "faq",
+    "subcategory": "preco-banho"
+  },
+  {
+    "title": "Preço Tosa - Cães Pequeno Porte",
+    "content": "Tosa completa para cães de pequeno porte: R$ 80,00. Inclui banho, tosa higiênica ou completa, limpeza de ouvidos e corte de unhas. Duração: 2 horas.",
+    "category": "faq",
+    "subcategory": "preco-tosa"
+  },
+  {
+    "title": "Preço Tosa - Cães Médio Porte",
+    "content": "Tosa completa para cães de médio porte: R$ 120,00. Inclui banho, tosa higiênica ou completa, limpeza de ouvidos e corte de unhas. Duração: 2h30.",
+    "category": "faq",
+    "subcategory": "preco-tosa"
+  },
+  {
+    "title": "Preço Tosa - Cães Grande Porte",
+    "content": "Tosa completa para cães de grande porte: R$ 180,00. Inclui banho, tosa higiênica ou completa, limpeza de ouvidos e corte de unhas. Duração: 3 horas.",
+    "category": "faq",
+    "subcategory": "preco-tosa"
+  },
+  {
+    "title": "Desconto PIX",
+    "content": "Pagamento via PIX tem 10% de desconto em todos os serviços! O QR Code é gerado na hora e você recebe confirmação imediata. É seguro, rápido e você ainda economiza.",
+    "category": "faq",
+    "subcategory": "pagamento"
+  },
+  {
+    "title": "Formas de Pagamento Aceitas",
+    "content": "Aceitamos PIX (com 10% de desconto), dinheiro, cartão de débito e crédito (Visa, Mastercard, Elo). Para pacotes, também parcelamos em até 3x sem juros no cartão.",
+    "category": "faq",
+    "subcategory": "pagamento"
+  },
+  {
+    "title": "Vacinas Necessárias",
+    "content": "Para utilizar nossos serviços, seu pet precisa estar com a carteira de vacinação em dia: V8 ou V10 (cães), V3 ou V4 (gatos), antirrábica e vacina contra tosse dos canis (cães). Apresente a carteirinha no primeiro atendimento.",
+    "category": "faq",
+    "subcategory": "requisitos"
+  },
+  {
+    "title": "Como Agendar",
+    "content": "Para agendar é super fácil! Fale com a Marina pelo WhatsApp, escolha o dia e horário que prefere, e pronto! Também ligamos para confirmar um dia antes do agendamento.",
+    "category": "faq",
+    "subcategory": "agendamento"
+  },
+  {
+    "title": "Política de Cancelamento",
+    "content": "Cancelamentos com até 24 horas de antecedência não têm custo. Cancelamentos com menos de 24 horas ou no-show podem ter taxa de R$ 30,00. Reagendamentos são gratuitos!",
+    "category": "faq",
+    "subcategory": "politica"
+  },
+  {
+    "title": "Hotel para Pets - Preços",
+    "content": "Hospedagem diária: Cães pequeno porte R$ 60/dia, médio porte R$ 80/dia, grande porte R$ 100/dia. Gatos R$ 50/dia. Inclui alimentação, passeios, recreação e envio de fotos diárias para você acompanhar!",
+    "category": "faq",
+    "subcategory": "hotel"
+  },
+  {
+    "title": "Hotel - O que está incluído",
+    "content": "Na hospedagem está incluído: alimentação 3x ao dia (ou ração própria se preferir), passeios supervisionados, recreação, área climatizada, monitoramento 24h e envio de fotos/vídeos diários. Banho de cortesia no check-out!",
+    "category": "faq",
+    "subcategory": "hotel"
+  },
+  {
+    "title": "Atendimento Veterinário",
+    "content": "Temos veterinária parceira que atende de segunda a sexta das 9h às 17h. Consultas R$ 150,00. Atendemos emergências (valores sob consulta). Para agendar consulta veterinária, fale com a Marina.",
+    "category": "faq",
+    "subcategory": "veterinaria"
+  },
+  {
+    "title": "Produtos Utilizados",
+    "content": "Usamos apenas produtos premium e hipoalergênicos: shampoos específicos para cada tipo de pelagem, condicionadores hidratantes, perfumes pet-safe. Para pets com pele sensível, temos linha dermatológica.",
+    "category": "faq",
+    "subcategory": "produtos"
+  }
+]

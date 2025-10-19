@@ -1,0 +1,62 @@
+[
+  {
+    "title": "Política de Cancelamento e Reagendamento",
+    "content": "Cancelamentos: Aceitamos cancelamentos sem custo se feitos com até 24 horas de antecedência. Cancelamentos de última hora (menos de 24h) ou no-show podem ter taxa de R$ 30,00. Reagendamentos são sempre gratuitos! Basta avisar com antecedência.",
+    "category": "politica",
+    "subcategory": "cancelamento"
+  },
+  {
+    "title": "Política de Vacinação",
+    "content": "Para a segurança de todos os pets, exigimos carteira de vacinação atualizada: V8 ou V10 e antirrábica (cães), V3 ou V4 e antirrábica (gatos), além de vacina contra tosse dos canis para cães. Apresente a carteirinha no primeiro atendimento.",
+    "category": "politica",
+    "subcategory": "requisitos"
+  },
+  {
+    "title": "Política de Bem-Estar Animal",
+    "content": "O bem-estar do seu pet é nossa prioridade! Não atendemos pets agressivos sem avaliação prévia. Usamos técnicas de manejo gentil e respeitoso. Se percebermos estresse excessivo, pausamos o serviço e entramos em contato com você. Seu pet é tratado com carinho e paciência.",
+    "category": "politica",
+    "subcategory": "bem-estar"
+  },
+  {
+    "title": "Política de Pagamento",
+    "content": "Aceitamos PIX (10% desconto), dinheiro, débito e crédito. Pagamento na retirada do pet. Para pacotes mensais, pagamento antecipado. Parcelamos em até 3x sem juros no cartão para valores acima de R$ 150,00.",
+    "category": "politica",
+    "subcategory": "pagamento"
+  },
+  {
+    "title": "Política de Atraso",
+    "content": "Atrasos na retirada: Toleramos até 30 minutos de atraso sem custo adicional. Atrasos superiores podem ter taxa de R$ 20,00 por hora adicional, pois mantemos um profissional aguardando. Sempre que possível, avise antecipadamente!",
+    "category": "politica",
+    "subcategory": "horarios"
+  },
+  {
+    "title": "Política de Emergências",
+    "content": "Em caso de emergência durante os serviços, entramos em contato imediatamente. Se não conseguirmos contato e for necessário atendimento veterinário urgente, levamos à clínica parceira e você será informado. A saúde do pet vem sempre em primeiro lugar!",
+    "category": "politica",
+    "subcategory": "emergencias"
+  },
+  {
+    "title": "Política de Hotel - Check-in/Check-out",
+    "content": "Hotel: Check-in a partir das 8h, check-out até 18h. Check-out tardio (após 18h) pode ter taxa adicional de R$ 30,00. Na diária está incluso alimentação, passeios, recreação e monitoramento 24h. Traga ração habitual se seu pet tem restrições.",
+    "category": "politica",
+    "subcategory": "hotel"
+  },
+  {
+    "title": "Política de Produtos Próprios",
+    "content": "Você pode trazer produtos próprios (shampoo, ração) se seu pet tem necessidades especiais ou alergia. Apenas informe antecipadamente! Não cobramos taxa adicional por uso de produtos do cliente.",
+    "category": "politica",
+    "subcategory": "produtos"
+  },
+  {
+    "title": "Política de Privacidade e Fotos",
+    "content": "Podemos tirar fotos do seu pet durante os serviços para enviar a você e para nossas redes sociais (com seu consentimento). Se não quiser que publiquemos, basta avisar! Respeitamos sua privacidade e a do seu pet.",
+    "category": "politica",
+    "subcategory": "privacidade"
+  },
+  {
+    "title": "Política de Garantia de Qualidade",
+    "content": "Se você não ficar satisfeito com o serviço, entre em contato em até 24 horas! Refazemos o serviço sem custo adicional ou devolvemos seu dinheiro. Sua satisfação e do seu pet é nossa prioridade máxima.",
+    "category": "politica",
+    "subcategory": "qualidade"
+  }
+]

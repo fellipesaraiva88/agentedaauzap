@@ -4,6 +4,7 @@ import { WahaService } from './services/WahaService';
 import { OpenAIService } from './services/OpenAIService';
 import { HumanDelay } from './services/HumanDelay';
 import { MessageProcessor } from './services/MessageProcessor';
+import { MessageProcessorV2 } from './services/MessageProcessorV2';
 import { CustomerMemoryDB } from './services/CustomerMemoryDB';
 import { AudioTranscriptionService } from './services/AudioTranscriptionService';
 import { AsaasPaymentService } from './services/AsaasPaymentService';
@@ -32,6 +33,9 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY!;
 const ENABLE_PIX_PAYMENTS = process.env.ENABLE_PIX_PAYMENTS === 'true';
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
 const ASAAS_ENVIRONMENT = (process.env.ASAAS_ENVIRONMENT as 'sandbox' | 'production') || 'sandbox';
+
+// 🦜 Configuração LangChain V2 (nova arquitetura)
+const USE_LANGCHAIN_V2 = process.env.USE_LANGCHAIN_V2 === 'true';
 
 // Validações
 if (!WAHA_API_URL || !WAHA_API_KEY || !OPENAI_API_KEY || !GROQ_API_KEY) {
@@ -118,19 +122,44 @@ console.log('⚡ Inicializando resposta instantânea...');
 const instantAck = new InstantAcknowledgment(wahaService, conversationState);
 console.log('✅ Resposta instantânea configurada!\n');
 
-const messageProcessor = new MessageProcessor(
-  wahaService,
-  openaiService,
-  humanDelay,
-  memoryDB,
-  audioService,
-  OPENAI_API_KEY,
-  conversationState,  // 💬 Gerenciador de estado (NOVO)
-  pixDiscountManager, // Pode ser undefined se não configurado
-  contextRetrieval,   // 🆕 Novo
-  onboardingManager,  // 🆕 Novo
-  intentAnalyzer      // 🆕 Novo
-);
+// 🦜 SELECIONA VERSÃO DO MESSAGE PROCESSOR
+let messageProcessor: MessageProcessor | MessageProcessorV2;
+
+if (USE_LANGCHAIN_V2) {
+  console.log('\n🦜 ========================================');
+  console.log('🦜 USANDO LANGCHAIN V2 (REFATORADO)');
+  console.log('🦜 ========================================');
+  console.log('✅ Pipelines LCEL');
+  console.log('✅ Anti-repetição semântica');
+  console.log('✅ Delays automáticos');
+  console.log('✅ 67% menos código\n');
+
+  messageProcessor = new MessageProcessorV2(
+    wahaService,
+    memoryDB,
+    audioService,
+    OPENAI_API_KEY,
+    pixDiscountManager,
+    contextRetrieval,
+    intentAnalyzer
+  );
+} else {
+  console.log('\n📦 Usando MessageProcessor V1 (legado)\n');
+
+  messageProcessor = new MessageProcessor(
+    wahaService,
+    openaiService,
+    humanDelay,
+    memoryDB,
+    audioService,
+    OPENAI_API_KEY,
+    conversationState,
+    pixDiscountManager,
+    contextRetrieval,
+    onboardingManager,
+    intentAnalyzer
+  );
+}
 
 // Inicializa Express
 const app = express();

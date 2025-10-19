@@ -1,0 +1,62 @@
+[
+  {
+    "title": "Serviço - Banho Completo",
+    "content": "Banho completo inclui: escolha de shampoo específico para tipo de pelo, condicionador hidratante, limpeza profunda de ouvidos, corte de unhas, glândulas perianais (se necessário), secagem e escovação. Duração: 1h a 2h dependendo do porte. Seu pet sai cheiroso, limpo e feliz!",
+    "category": "servico",
+    "subcategory": "banho"
+  },
+  {
+    "title": "Serviço - Tosa Higiênica",
+    "content": "Tosa higiênica: limpeza de pelos das patas, região íntima, barriga e focinho. Ideal para manter higiene entre tosas completas. Inclui banho, secagem e corte de unhas. Recomendamos a cada 30 dias.",
+    "category": "servico",
+    "subcategory": "tosa"
+  },
+  {
+    "title": "Serviço - Tosa Completa",
+    "content": "Tosa completa: corte de pelos em todo o corpo conforme raça ou preferência do tutor. Inclui banho, hidratação, tosa higiênica, corte de unhas e limpeza de ouvidos. Nossos profissionais são capacitados para tosas de raça e criativas!",
+    "category": "servico",
+    "subcategory": "tosa"
+  },
+  {
+    "title": "Serviço - Hidratação",
+    "content": "Hidratação profunda: tratamento especial para pelos ressecados, com produtos premium que devolvem maciez e brilho. Indicado para pets com pelos longos ou que fazem tosa frequente. Pode ser adicionado ao banho por +R$ 25,00.",
+    "category": "servico",
+    "subcategory": "estetica"
+  },
+  {
+    "title": "Serviço - Hotel/Day Care",
+    "content": "Hotel e Day Care para quando você precisa viajar ou trabalhar. Ambiente seguro, climatizado, com área de recreação, passeios supervisionados e alimentação balanceada. Enviamos fotos/vídeos diários. Day care (período de 8h) disponível de segunda a sexta.",
+    "category": "servico",
+    "subcategory": "hotel"
+  },
+  {
+    "title": "Serviço - Consulta Veterinária",
+    "content": "Consultas veterinárias gerais: avaliação de saúde, prescrição de medicamentos, orientações sobre alimentação e cuidados. Nossa veterinária parceira Dra. Paula atende de segunda a sexta. Consulta: R$ 150,00. Retornos em 15 dias: R$ 80,00.",
+    "category": "servico",
+    "subcategory": "veterinaria"
+  },
+  {
+    "title": "Serviço - Vacinação",
+    "content": "Aplicação de vacinas essenciais: V8, V10 (cães), V3, V4 (gatos), antirrábica, tosse dos canis. Todas as vacinas são importadas e armazenadas adequadamente. Valores: consulte disponibilidade e preços com a Marina.",
+    "category": "servico",
+    "subcategory": "veterinaria"
+  },
+  {
+    "title": "Serviço - Transporte Pet",
+    "content": "Serviço de buscar e levar seu pet (sob consulta de disponibilidade e região). Ideal para quem não tem tempo ou mobilidade. Veículo climatizado e seguro. Cobrimos região central e bairros próximos. Valores a partir de R$ 20,00.",
+    "category": "servico",
+    "subcategory": "transporte"
+  },
+  {
+    "title": "Pacote Mensal - Banho",
+    "content": "Pacote mensal de banho: 4 banhos por mês com desconto especial! Pequeno porte: R$ 180,00 (economize R$ 20,00), Médio porte: R$ 280,00 (economize R$ 40,00), Grande porte: R$ 420,00 (economize R$ 60,00). Válido por 30 dias.",
+    "category": "servico",
+    "subcategory": "pacote"
+  },
+  {
+    "title": "Pacote Banho e Tosa",
+    "content": "Pacote banho e tosa mensal: 2 banhos + 1 tosa completa por mês. Pequeno porte: R$ 190,00, Médio porte: R$ 260,00, Grande porte: R$ 420,00. Economize até 15%! Ideal para manter seu pet sempre lindo.",
+    "category": "servico",
+    "subcategory": "pacote"
+  }
+]
