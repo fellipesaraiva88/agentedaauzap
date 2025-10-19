@@ -486,6 +486,9 @@ export class CustomerMemoryDB {
    * Adiciona interesse do usuário
    */
   public addInterest(chatId: string, interest: string): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     // Verifica se já existe
     const exists = db.prepare(`
@@ -525,6 +528,9 @@ export class CustomerMemoryDB {
    * Adiciona objeção do usuário
    */
   public addObjection(chatId: string, objection: string): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     db.prepare(`
       INSERT INTO user_objections (chat_id, objection)
@@ -556,6 +562,9 @@ export class CustomerMemoryDB {
    * Adiciona compra ao histórico
    */
   public addPurchase(chatId: string, purchase: Purchase): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     db.prepare(`
       INSERT INTO purchases (chat_id, service, value, pet_name)
@@ -725,6 +734,9 @@ export class CustomerMemoryDB {
    * Agenda follow-up
    */
   public scheduleFollowUp(followUp: ScheduledFollowUp): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     db.prepare(`
       INSERT INTO scheduled_followups (chat_id, scheduled_for, reason, message, attempt, last_topic, last_stage)
@@ -744,6 +756,9 @@ export class CustomerMemoryDB {
    * Obtém follow-ups pendentes
    */
   public getPendingFollowUps(): ScheduledFollowUp[] {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT *
@@ -770,6 +785,9 @@ export class CustomerMemoryDB {
    * Marca follow-up como executado
    */
   public markFollowUpExecuted(chatId: string): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     db.prepare(`
       UPDATE scheduled_followups
@@ -825,6 +843,9 @@ export class CustomerMemoryDB {
    * Obtém oportunidades de conversão ativas
    */
   public getActiveConversionOpportunities(chatId: string): ConversionOpportunity[] {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     const rows = db.prepare(`
       SELECT score, reason, suggested_action, urgency_level, close_message
@@ -895,6 +916,9 @@ export class CustomerMemoryDB {
    */
   public saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): void {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       db.prepare(`
         INSERT INTO immediate_followups (chat_id, level, message, attempt, executed_at)
@@ -910,6 +934,9 @@ export class CustomerMemoryDB {
    * Marca cliente como abandonou (não respondeu 5 follow-ups)
    */
   public markClientAsAbandoned(chatId: string): void {
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return; // TODO: Implementar versão PostgreSQL
+    }
     const db = this.requireSQLite();
     db.prepare(`
       UPDATE user_profiles
@@ -927,6 +954,9 @@ export class CustomerMemoryDB {
    */
   public getImmediateFollowUps(chatId: string): any[] {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return []; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       return db.prepare(`
         SELECT * FROM immediate_followups
@@ -943,6 +973,9 @@ export class CustomerMemoryDB {
    */
   public saveAppointmentReminder(reminder: any): void {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       db.prepare(`
         INSERT INTO appointment_reminders
@@ -969,6 +1002,9 @@ export class CustomerMemoryDB {
    */
   public markReminderAsSent(chatId: string, appointmentTimestamp: number): void {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       db.prepare(`
         UPDATE appointment_reminders
@@ -985,6 +1021,9 @@ export class CustomerMemoryDB {
    */
   public getPendingReminders(): any[] {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return []; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       return db.prepare(`
         SELECT * FROM appointment_reminders
@@ -1019,6 +1058,9 @@ export class CustomerMemoryDB {
     paymentUrl?: string;
   }): void {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       db.prepare(`
         INSERT INTO payments (
@@ -1049,6 +1091,9 @@ export class CustomerMemoryDB {
    */
   public updatePaymentStatus(paymentId: string, status: string): void {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       const confirmedAt = status === 'confirmed' ? Date.now() : null;
 
@@ -1069,6 +1114,9 @@ export class CustomerMemoryDB {
    */
   public getPaymentById(paymentId: string): any {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return null; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       return db.prepare(`
         SELECT * FROM payments WHERE payment_id = ?
@@ -1083,6 +1131,9 @@ export class CustomerMemoryDB {
    */
   public getPaymentsByCustomer(chatId: string): any[] {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return []; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       return db.prepare(`
         SELECT * FROM payments
@@ -1099,6 +1150,9 @@ export class CustomerMemoryDB {
    */
   public getPendingPayments(): any[] {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return []; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       return db.prepare(`
         SELECT * FROM payments
@@ -1115,6 +1169,9 @@ export class CustomerMemoryDB {
    */
   public getPaymentAnalytics(chatId?: string): any {
     try {
+      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+        return null; // TODO: Implementar versão PostgreSQL
+      }
       const db = this.requireSQLite();
       if (chatId) {
         return db.prepare(`
