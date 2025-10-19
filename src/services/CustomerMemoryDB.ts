@@ -465,9 +465,9 @@ export class CustomerMemoryDB {
    * Obtém histórico de tempos de resposta
    */
   public getResponseTimeHistory(chatId: string): number[] {
-    // TODO: Implementar versão Supabase desses métodos auxiliares
-    if (this.dbType === 'supabase') {
-      return []; // Retorna vazio por enquanto no Supabase
+    // TODO: Implementar versão PostgreSQL/Supabase desses métodos auxiliares
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto (usa avg já salvo)
     }
 
     const db = this.requireSQLite();
@@ -505,9 +505,9 @@ export class CustomerMemoryDB {
    * Obtém interesses do usuário
    */
   public getInterests(chatId: string): string[] {
-    // TODO: Implementar versão Supabase
-    if (this.dbType === 'supabase') {
-      return []; // Retorna vazio por enquanto no Supabase
+    // TODO: Implementar versão PostgreSQL/Supabase
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto
     }
 
     const db = this.requireSQLite();
@@ -536,9 +536,9 @@ export class CustomerMemoryDB {
    * Obtém objeções não resolvidas
    */
   public getObjections(chatId: string): string[] {
-    // TODO: Implementar versão Supabase
-    if (this.dbType === 'supabase') {
-      return []; // Retorna vazio por enquanto no Supabase
+    // TODO: Implementar versão PostgreSQL/Supabase
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto
     }
 
     const db = this.requireSQLite();
@@ -567,9 +567,9 @@ export class CustomerMemoryDB {
    * Obtém histórico de compras
    */
   public getPurchaseHistory(chatId: string): Purchase[] {
-    // TODO: Implementar versão Supabase
-    if (this.dbType === 'supabase') {
-      return []; // Retorna vazio por enquanto no Supabase
+    // TODO: Implementar versão PostgreSQL/Supabase
+    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      return []; // Retorna vazio por enquanto
     }
 
     const db = this.requireSQLite();
