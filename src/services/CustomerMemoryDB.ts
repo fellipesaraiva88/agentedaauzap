@@ -1,94 +1,37 @@
-import Database from 'better-sqlite3';
 import { UserProfile, Purchase, ScheduledFollowUp, ConversionOpportunity } from '../types/UserProfile';
-import fs from 'fs';
-import path from 'path';
 import { PostgreSQLClient, postgresClient } from './PostgreSQLClient';
 import { RedisClient, redisClient } from './RedisClient';
 
 /**
  * Tipo de banco de dados em uso
  */
-type DatabaseType = 'postgres' | 'sqlite';
+type DatabaseType = 'postgres';
 
 /**
- * 🚀 SERVIÇO DE BANCO DE DADOS - NOVA GERAÇÃO
+ * 🚀 SERVIÇO DE BANCO DE DADOS - POSTGRESQL + REDIS
  * Armazena perfis, histórico e análises comportamentais
  *
- * PRIORIDADE: PostgreSQL direto → SQLite (fallback)
+ * DATABASE: PostgreSQL (obrigatório)
  * CACHE: Redis (perfis, contextos, queries frequentes)
- * PERFORMANCE: 10x mais rápido com cache
+ * PERFORMANCE: 10-100x mais rápido com cache
  */
 export class CustomerMemoryDB {
-  private db: Database.Database | null = null;
-  private postgres: PostgreSQLClient | null = null;
-  private redis: RedisClient | null = null;
+  private postgres: PostgreSQLClient;
+  private redis: RedisClient;
   private dbType: DatabaseType;
-  private dbPath: string;
 
-  constructor(dbPath: string = './data/customers.db') {
-    this.dbPath = dbPath;
-
-    // 🎯 DECIDE QUAL BANCO USAR (PRIORIDADE)
-    const hasPostgres = process.env.DATABASE_URL;
-
-    if (hasPostgres) {
-      // 🐘 MODO POSTGRESQL DIRETO (Produção)
-      this.dbType = 'postgres';
-      this.postgres = PostgreSQLClient.getInstance();
-      this.redis = RedisClient.getInstance();
-      console.log(`📊 CustomerMemoryDB: POSTGRESQL DIRETO + REDIS CACHE`);
-      console.log('   ✅ Performance máxima com cache');
-    } else {
-      // 💾 MODO SQLITE (Local - Dev)
-      this.dbType = 'sqlite';
-      const dir = path.dirname(dbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      this.db = new Database(dbPath);
-      this.db.pragma('journal_mode = WAL');
-      console.log(`📊 CustomerMemoryDB: SQLITE (dev) - sem cache`);
-      console.log('   💡 Configure DATABASE_URL para produção');
-
-      // Inicializa schema
-      this.initializeSchema();
-
-      console.log(`📊 CustomerMemoryDB inicializado: SQLite (${dbPath})`);
+  constructor() {
+    // 🎯 POSTGRESQL OBRIGATÓRIO
+    if (!process.env.DATABASE_URL) {
+      throw new Error('❌ DATABASE_URL não configurado! PostgreSQL é obrigatório.');
     }
-  }
 
-  /**
-   * Helper: Garante que SQLite está disponível ou lança erro
-   */
-  private requireSQLite(): Database.Database {
-    if (!this.db) {
-      throw new Error('SQLite não está disponível. Método não implementado para PostgreSQL ainda.');
-    }
-    return this.db;
-  }
+    this.dbType = 'postgres';
+    this.postgres = PostgreSQLClient.getInstance();
+    this.redis = RedisClient.getInstance();
 
-  /**
-   * Inicializa o schema do banco de dados (APENAS SQLite)
-   */
-  private initializeSchema(): void {
-    if (!this.db) return;
-
-    const schemaPath = path.join(__dirname, '../database/schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf-8');
-
-    // Executa o schema principal
-    this.db.exec(schema);
-
-    // Executa migration de pagamentos
-    try {
-      const paymentsPath = path.join(__dirname, '../database/payments.sql');
-      const paymentsSchema = fs.readFileSync(paymentsPath, 'utf-8');
-      this.db.exec(paymentsSchema);
-      console.log('✅ Tabela payments criada/atualizada');
-    } catch (error) {
-      console.log('⚠️ Schema de payments não encontrado (será criado ao usar pagamentos)');
-    }
+    console.log('📊 CustomerMemoryDB: POSTGRESQL + REDIS');
+    console.log('   ✅ Performance máxima com cache');
   }
 
   /**
@@ -112,14 +55,8 @@ export class CustomerMemoryDB {
       // console.log(`⚠️ Cache MISS: ${chatId} - buscando do banco...`);
     }
 
-    // 2️⃣ DATABASE LAYER - Busca do banco apropriado
-    let profile: UserProfile;
-
-    if (this.dbType === 'postgres') {
-      profile = await this.getOrCreateProfilePostgres(chatId);
-    } else {
-      profile = this.getOrCreateProfileSQLite(chatId);
-    }
+    // 2️⃣ DATABASE LAYER - Busca do PostgreSQL
+    const profile = await this.getOrCreateProfileFromDB(chatId);
 
     // 3️⃣ CACHE UPDATE - Salva no Redis para próximas consultas
     if (this.redis?.isRedisConnected()) {
@@ -131,11 +68,9 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * 🐘 Obtém ou cria perfil (POSTGRESQL DIRETO)
+   * 🐘 Obtém ou cria perfil (POSTGRESQL)
    */
-  private async getOrCreateProfilePostgres(chatId: string): Promise<UserProfile> {
-    if (!this.postgres) throw new Error('PostgreSQL not initialized');
-
+  private async getOrCreateProfileFromDB(chatId: string): Promise<UserProfile> {
     try {
       // Busca perfil existente
       const existing = await this.postgres.getOne<any>(
@@ -162,30 +97,6 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * Obtém ou cria perfil (SQLITE)
-   */
-  private getOrCreateProfileSQLite(chatId: string): UserProfile {
-    if (!this.db) throw new Error('SQLite not initialized');
-
-    const existing = this.db.prepare(`
-      SELECT * FROM user_profiles WHERE chat_id = ?
-    `).get(chatId) as any;
-
-    if (existing) {
-      return this.rowToUserProfile(existing);
-    }
-
-    // Cria novo perfil
-    const now = Date.now();
-    this.db.prepare(`
-      INSERT INTO user_profiles (chat_id, last_message_timestamp)
-      VALUES (?, ?)
-    `).run(chatId, now);
-
-    return this.getOrCreateProfileSQLite(chatId);
-  }
-
-  /**
    * 🚀 Atualiza perfil de usuário (COM CACHE INVALIDATION)
    *
    * Fluxo:
@@ -194,11 +105,7 @@ export class CustomerMemoryDB {
    */
   public async updateProfile(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
     // 1️⃣ Atualiza no banco
-    if (this.dbType === 'postgres') {
-      await this.updateProfilePostgres(profile);
-    } else {
-      this.updateProfileSQLite(profile);
-    }
+    await this.updateProfileInDB(profile);
 
     // 2️⃣ Invalida cache (próxima leitura pega dado atualizado)
     if (this.redis?.isRedisConnected()) {
@@ -208,11 +115,9 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * 🐘 Atualiza perfil (POSTGRESQL DIRETO)
+   * 🐘 Atualiza perfil (POSTGRESQL)
    */
-  private async updateProfilePostgres(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
-    if (!this.postgres) throw new Error('PostgreSQL not initialized');
-
+  private async updateProfileInDB(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
     try {
       const updateData: Record<string, any> = {};
 
@@ -256,84 +161,9 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * Atualiza perfil (SQLITE)
-   */
-  private updateProfileSQLite(profile: Partial<UserProfile> & { chatId: string }): void {
-    if (!this.db) throw new Error('SQLite not initialized');
-
-    const fields: string[] = [];
-    const values: any[] = [];
-
-    // Campos simples
-    const simpleFields = [
-      'nome', 'pet_nome', 'pet_raca', 'pet_porte', 'pet_tipo',
-      'last_message_timestamp', 'avg_response_time', 'engagement_score',
-      'engagement_level', 'conversation_stage', 'purchase_intent',
-      'last_sentiment', 'total_messages', 'total_conversations', 'notes'
-    ];
-
-    Object.keys(profile).forEach(key => {
-      const snakeCase = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-      if (simpleFields.includes(snakeCase) && profile[key as keyof typeof profile] !== undefined) {
-        fields.push(`${snakeCase} = ?`);
-        values.push(profile[key as keyof typeof profile]);
-      }
-    });
-
-    // Preferências (JSON)
-    if (profile.preferences) {
-      fields.push('preferences = ?');
-      values.push(JSON.stringify(profile.preferences));
-    }
-
-    if (fields.length > 0) {
-      values.push(profile.chatId);
-      this.db.prepare(`
-        UPDATE user_profiles
-        SET ${fields.join(', ')}
-        WHERE chat_id = ?
-      `).run(...values);
-    }
-  }
-
-  /**
    * Adiciona tempo de resposta ao histórico
    */
   public async addResponseTime(chatId: string, responseTime: number): Promise<void> {
-    if (this.dbType === 'postgres') {
-      return this.addResponseTimePostgres(chatId, responseTime);
-    } else {
-      return this.addResponseTimeSQLite(chatId, responseTime);
-    }
-  }
-
-  private addResponseTimeSQLite(chatId: string, responseTime: number): void {
-    if (!this.db) {
-      console.warn('⚠️ SQLite não disponível');
-      return;
-    }
-
-    this.db.prepare(`
-      INSERT INTO response_times (chat_id, response_time)
-      VALUES (?, ?)
-    `).run(chatId, responseTime);
-
-    // 🧠 MEMÓRIA EXPANDIDA: Mantém últimas 50 respostas (conexão eterna)
-    this.db.prepare(`
-      DELETE FROM response_times
-      WHERE chat_id = ?
-      AND id NOT IN (
-        SELECT id FROM response_times
-        WHERE chat_id = ?
-        ORDER BY timestamp DESC
-        LIMIT 50
-      )
-    `).run(chatId, chatId);
-  }
-
-  private async addResponseTimePostgres(chatId: string, responseTime: number): Promise<void> {
-    if (!this.postgres) return;
-
     try {
       await this.postgres.insert('response_times', {
         chat_id: chatId,
@@ -350,173 +180,142 @@ export class CustomerMemoryDB {
   /**
    * Obtém histórico de tempos de resposta
    */
-  public getResponseTimeHistory(chatId: string): number[] {
-    // TODO: Implementar versão PostgreSQL desses métodos auxiliares
-    if (this.dbType === 'postgres') {
-      return []; // Retorna vazio por enquanto (usa avg já salvo)
+  public async getResponseTimeHistory(chatId: string): Promise<number[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT response_time FROM response_times
+         WHERE chat_id = $1
+         ORDER BY timestamp DESC
+         LIMIT 50`,
+        [chatId]
+      );
+
+      return result.rows?.map(r => r.response_time) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar response time history:', error);
+      return [];
     }
-
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT response_time
-      FROM response_times
-      WHERE chat_id = ?
-      ORDER BY timestamp DESC
-      LIMIT 50
-    `).all(chatId) as { response_time: number }[];
-
-    return rows.map(r => r.response_time);
   }
 
   /**
    * Adiciona interesse do usuário
    */
-  public addInterest(chatId: string, interest: string): void {
-    if (this.dbType === 'postgres') {
-      return; // TODO: Implementar versão PostgreSQL
-    }
-    const db = this.requireSQLite();
-    // Verifica se já existe
-    const exists = db.prepare(`
-      SELECT id FROM user_interests
-      WHERE chat_id = ? AND interest = ?
-    `).get(chatId, interest);
+  public async addInterest(chatId: string, interest: string): Promise<void> {
+    try {
+      // Verifica se já existe
+      const exists = await this.postgres.getOne<any>(
+        `SELECT id FROM user_interests WHERE chat_id = $1 AND interest = $2`,
+        [chatId, interest]
+      );
 
-    if (!exists) {
-      db.prepare(`
-        INSERT INTO user_interests (chat_id, interest)
-        VALUES (?, ?)
-      `).run(chatId, interest);
+      if (!exists) {
+        await this.postgres.insert('user_interests', {
+          chat_id: chatId,
+          interest
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao adicionar interesse:', error);
     }
   }
 
   /**
    * Obtém interesses do usuário
    */
-  public getInterests(chatId: string): string[] {
-    // TODO: Implementar versão PostgreSQL
-    if (this.dbType === 'postgres') {
-      return []; // Retorna vazio por enquanto
+  public async getInterests(chatId: string): Promise<string[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT DISTINCT interest FROM user_interests
+         WHERE chat_id = $1
+         ORDER BY mentioned_at DESC`,
+        [chatId]
+      );
+
+      return result.rows?.map(r => r.interest) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar interesses:', error);
+      return [];
     }
-
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT DISTINCT interest
-      FROM user_interests
-      WHERE chat_id = ?
-      ORDER BY mentioned_at DESC
-    `).all(chatId) as { interest: string }[];
-
-    return rows.map(r => r.interest);
   }
 
   /**
    * Adiciona objeção do usuário
    */
-  public addObjection(chatId: string, objection: string): void {
-    if (this.dbType === 'postgres') {
-      return; // TODO: Implementar versão PostgreSQL
+  public async addObjection(chatId: string, objection: string): Promise<void> {
+    try {
+      await this.postgres.insert('user_objections', {
+        chat_id: chatId,
+        objection
+      });
+    } catch (error) {
+      console.error('❌ Erro ao adicionar objeção:', error);
     }
-    const db = this.requireSQLite();
-    db.prepare(`
-      INSERT INTO user_objections (chat_id, objection)
-      VALUES (?, ?)
-    `).run(chatId, objection);
   }
 
   /**
    * Obtém objeções não resolvidas
    */
-  public getObjections(chatId: string): string[] {
-    // TODO: Implementar versão PostgreSQL
-    if (this.dbType === 'postgres' ) {
-      return []; // Retorna vazio por enquanto
+  public async getObjections(chatId: string): Promise<string[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT objection FROM user_objections
+         WHERE chat_id = $1 AND resolved = FALSE
+         ORDER BY mentioned_at DESC`,
+        [chatId]
+      );
+
+      return result.rows?.map(r => r.objection) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar objeções:', error);
+      return [];
     }
-
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT objection
-      FROM user_objections
-      WHERE chat_id = ? AND resolved = FALSE
-      ORDER BY mentioned_at DESC
-    `).all(chatId) as { objection: string }[];
-
-    return rows.map(r => r.objection);
   }
 
   /**
    * Adiciona compra ao histórico
    */
-  public addPurchase(chatId: string, purchase: Purchase): void {
-    if (this.dbType === 'postgres' ) {
-      return; // TODO: Implementar versão PostgreSQL
+  public async addPurchase(chatId: string, purchase: Purchase): Promise<void> {
+    try {
+      await this.postgres.insert('purchases', {
+        chat_id: chatId,
+        service: purchase.service,
+        value: purchase.value,
+        pet_name: purchase.petName || null
+      });
+    } catch (error) {
+      console.error('❌ Erro ao adicionar compra:', error);
     }
-    const db = this.requireSQLite();
-    db.prepare(`
-      INSERT INTO purchases (chat_id, service, value, pet_name)
-      VALUES (?, ?, ?, ?)
-    `).run(chatId, purchase.service, purchase.value, purchase.petName || null);
   }
 
   /**
    * Obtém histórico de compras
    */
-  public getPurchaseHistory(chatId: string): Purchase[] {
-    // TODO: Implementar versão PostgreSQL
-    if (this.dbType === 'postgres' ) {
-      return []; // Retorna vazio por enquanto
+  public async getPurchaseHistory(chatId: string): Promise<Purchase[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT service, value, pet_name, purchase_date
+         FROM purchases
+         WHERE chat_id = $1
+         ORDER BY purchase_date DESC`,
+        [chatId]
+      );
+
+      return result.rows?.map(r => ({
+        date: new Date(r.purchase_date),
+        service: r.service,
+        value: r.value,
+        petName: r.pet_name
+      })) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar histórico de compras:', error);
+      return [];
     }
-
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT service, value, pet_name, purchase_date
-      FROM purchases
-      WHERE chat_id = ?
-      ORDER BY purchase_date DESC
-    `).all(chatId) as any[];
-
-    return rows.map(r => ({
-      date: new Date(r.purchase_date),
-      service: r.service,
-      value: r.value,
-      petName: r.pet_name
-    }));
   }
 
   /**
    * Salva mensagem no histórico
    */
   public async saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
-    if (this.dbType === 'postgres') {
-      return this.saveMessagePostgres(chatId, role, content, sentiment, engagementScore, messageId);
-    } else {
-      return this.saveMessageSQLite(chatId, role, content, sentiment, engagementScore, messageId);
-    }
-  }
-
-  private saveMessageSQLite(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): void {
-    const db = this.requireSQLite();
-    db.prepare(`
-      INSERT INTO conversation_history (chat_id, role, content, sentiment, engagement_score, message_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(chatId, role, content, sentiment || null, engagementScore || null, messageId || null);
-
-    // Mantém apenas últimas 50 mensagens por chat
-    db.prepare(`
-      DELETE FROM conversation_history
-      WHERE chat_id = ?
-      AND id NOT IN (
-        SELECT id FROM conversation_history
-        WHERE chat_id = ?
-        ORDER BY timestamp DESC
-        LIMIT 50
-      )
-    `).run(chatId, chatId);
-  }
-
-  private async saveMessagePostgres(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
-    if (!this.postgres) throw new Error('PostgreSQL not initialized');
-
     try {
       // Insere mensagem
       await this.postgres.insert('conversation_history', {
@@ -548,48 +347,6 @@ export class CustomerMemoryDB {
     timestamp: number;
     sentiment?: string;
   }>> {
-    if (this.dbType === 'postgres') {
-      return this.getRecentMessagesWithIdsPostgres(chatId, limit);
-    } else {
-      return this.getRecentMessagesWithIdsSQLite(chatId, limit);
-    }
-  }
-
-  private getRecentMessagesWithIdsSQLite(chatId: string, limit: number): Array<{
-    messageId: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-    sentiment?: string;
-  }> {
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT message_id, role, content, timestamp, sentiment
-      FROM conversation_history
-      WHERE chat_id = ?
-      ORDER BY timestamp DESC
-      LIMIT ?
-    `).all(chatId, limit) as any[];
-
-    // Retorna em ordem cronológica (mais antiga primeiro)
-    return rows.reverse().map(r => ({
-      messageId: r.message_id || `fallback_${r.timestamp}`, // Fallback para msgs antigas sem ID
-      role: r.role as 'user' | 'assistant',
-      content: r.content,
-      timestamp: new Date(r.timestamp).getTime(),
-      sentiment: r.sentiment
-    }));
-  }
-
-  private async getRecentMessagesWithIdsPostgres(chatId: string, limit: number): Promise<Array<{
-    messageId: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-    sentiment?: string;
-  }>> {
-    if (!this.postgres) throw new Error('PostgreSQL not initialized');
-
     try {
       // Busca mensagens ordenadas por timestamp DESC
       const result = await this.postgres.query<any>(
@@ -621,98 +378,71 @@ export class CustomerMemoryDB {
   /**
    * Agenda follow-up
    */
-  public scheduleFollowUp(followUp: ScheduledFollowUp): void {
-    if (this.dbType === 'postgres' ) {
-      return; // TODO: Implementar versão PostgreSQL
+  public async scheduleFollowUp(followUp: ScheduledFollowUp): Promise<void> {
+    try {
+      await this.postgres.insert('scheduled_followups', {
+        chat_id: followUp.chatId,
+        scheduled_for: followUp.scheduledFor.toISOString(),
+        reason: followUp.reason,
+        message: followUp.message,
+        attempt: followUp.attempt,
+        last_topic: followUp.context.lastTopic,
+        last_stage: followUp.context.lastStage
+      });
+    } catch (error) {
+      console.error('❌ Erro ao agendar follow-up:', error);
     }
-    const db = this.requireSQLite();
-    db.prepare(`
-      INSERT INTO scheduled_followups (chat_id, scheduled_for, reason, message, attempt, last_topic, last_stage)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      followUp.chatId,
-      followUp.scheduledFor.toISOString(),
-      followUp.reason,
-      followUp.message,
-      followUp.attempt,
-      followUp.context.lastTopic,
-      followUp.context.lastStage
-    );
   }
 
   /**
    * Obtém follow-ups pendentes
    */
-  public getPendingFollowUps(): ScheduledFollowUp[] {
-    if (this.dbType === 'postgres' ) {
-      return []; // TODO: Implementar versão PostgreSQL
-    }
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT *
-      FROM scheduled_followups
-      WHERE executed = FALSE
-      AND datetime(scheduled_for) <= datetime('now')
-      ORDER BY scheduled_for ASC
-    `).all() as any[];
+  public async getPendingFollowUps(): Promise<ScheduledFollowUp[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM scheduled_followups
+         WHERE executed = FALSE
+         AND scheduled_for <= NOW()
+         ORDER BY scheduled_for ASC`
+      );
 
-    return rows.map(r => ({
-      chatId: r.chat_id,
-      scheduledFor: new Date(r.scheduled_for),
-      reason: r.reason,
-      message: r.message,
-      attempt: r.attempt,
-      context: {
-        lastTopic: r.last_topic,
-        lastStage: r.last_stage
-      }
-    }));
+      return result.rows?.map(r => ({
+        chatId: r.chat_id,
+        scheduledFor: new Date(r.scheduled_for),
+        reason: r.reason,
+        message: r.message,
+        attempt: r.attempt,
+        context: {
+          lastTopic: r.last_topic,
+          lastStage: r.last_stage
+        }
+      })) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar follow-ups pendentes:', error);
+      return [];
+    }
   }
 
   /**
    * Marca follow-up como executado
    */
-  public markFollowUpExecuted(chatId: string): void {
-    if (this.dbType === 'postgres' ) {
-      return; // TODO: Implementar versão PostgreSQL
+  public async markFollowUpExecuted(chatId: string): Promise<void> {
+    try {
+      await this.postgres.query(
+        `UPDATE scheduled_followups
+         SET executed = TRUE, executed_at = NOW()
+         WHERE chat_id = $1 AND executed = FALSE`,
+        [chatId]
+      );
+    } catch (error) {
+      console.error('❌ Erro ao marcar follow-up como executado:', error);
     }
-    const db = this.requireSQLite();
-    db.prepare(`
-      UPDATE scheduled_followups
-      SET executed = TRUE, executed_at = CURRENT_TIMESTAMP
-      WHERE chat_id = ? AND executed = FALSE
-    `).run(chatId);
   }
 
   /**
    * Salva oportunidade de conversão
    */
   public async saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
-    if (this.dbType === 'postgres' ) {
-      return this.saveConversionOpportunityPostgres(opportunity);
-    } else {
-      return this.saveConversionOpportunitySQLite(opportunity);
-    }
-  }
-
-  private saveConversionOpportunitySQLite(opportunity: ConversionOpportunity & { chatId: string }): void {
-    const db = this.requireSQLite();
-    db.prepare(`
-      INSERT INTO conversion_opportunities (chat_id, score, reason, suggested_action, urgency_level, close_message)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      opportunity.chatId,
-      opportunity.score,
-      opportunity.reason,
-      opportunity.suggestedAction,
-      opportunity.urgencyLevel,
-      opportunity.closeMessage || null
-    );
-  }
-
-  private async saveConversionOpportunityPostgres(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
-    if (!this.postgres) return;
-
     try {
       await this.postgres.insert('conversion_opportunities', {
         chat_id: opportunity.chatId,
@@ -730,34 +460,35 @@ export class CustomerMemoryDB {
   /**
    * Obtém oportunidades de conversão ativas
    */
-  public getActiveConversionOpportunities(chatId: string): ConversionOpportunity[] {
-    if (this.dbType === 'postgres' ) {
-      return []; // TODO: Implementar versão PostgreSQL
-    }
-    const db = this.requireSQLite();
-    const rows = db.prepare(`
-      SELECT score, reason, suggested_action, urgency_level, close_message
-      FROM conversion_opportunities
-      WHERE chat_id = ? AND converted = FALSE
-      ORDER BY score DESC, urgency_level DESC
-      LIMIT 3
-    `).all(chatId) as any[];
+  public async getActiveConversionOpportunities(chatId: string): Promise<ConversionOpportunity[]> {
+    try {
+      const result = await this.postgres.query<any>(
+        `SELECT score, reason, suggested_action, urgency_level, close_message
+         FROM conversion_opportunities
+         WHERE chat_id = $1 AND converted = FALSE
+         ORDER BY score DESC, urgency_level DESC
+         LIMIT 3`,
+        [chatId]
+      );
 
-    return rows.map(r => ({
-      score: r.score,
-      reason: r.reason,
-      suggestedAction: r.suggested_action,
-      urgencyLevel: r.urgency_level,
-      closeMessage: r.close_message
-    }));
+      return result.rows?.map(r => ({
+        score: r.score,
+        reason: r.reason,
+        suggestedAction: r.suggested_action,
+        urgencyLevel: r.urgency_level,
+        closeMessage: r.close_message
+      })) || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar oportunidades de conversão:', error);
+      return [];
+    }
   }
 
   /**
    * Converte row do banco para UserProfile
    */
-  private rowToUserProfile(row: any): UserProfile {
+  private async rowToUserProfile(row: any): Promise<UserProfile> {
     // No PostgreSQL, preferences já vem como objeto (JSONB)
-    // No SQLite, vem como string e precisa parse
     let preferences = {};
     if (row.preferences) {
       if (typeof row.preferences === 'string') {
@@ -772,6 +503,14 @@ export class CustomerMemoryDB {
       }
     }
 
+    // Busca dados relacionados de forma assíncrona
+    const [responseTimeHistory, interests, objections, purchaseHistory] = await Promise.all([
+      this.getResponseTimeHistory(row.chat_id),
+      this.getInterests(row.chat_id),
+      this.getObjections(row.chat_id),
+      this.getPurchaseHistory(row.chat_id)
+    ]);
+
     return {
       chatId: row.chat_id,
       nome: row.nome,
@@ -783,17 +522,17 @@ export class CustomerMemoryDB {
       lastMessageTimestamp: row.last_message_timestamp,
       lastFollowUpDate: row.last_follow_up_date ? new Date(row.last_follow_up_date) : undefined,
       avgResponseTime: row.avg_response_time,
-      responseTimeHistory: this.getResponseTimeHistory(row.chat_id),
+      responseTimeHistory,
       engagementScore: row.engagement_score,
       engagementLevel: row.engagement_level,
       conversationStage: row.conversation_stage,
       purchaseIntent: row.purchase_intent,
-      interests: this.getInterests(row.chat_id),
-      objections: this.getObjections(row.chat_id),
+      interests,
+      objections,
       lastSentiment: row.last_sentiment,
       totalMessages: row.total_messages,
       totalConversations: row.total_conversations,
-      purchaseHistory: this.getPurchaseHistory(row.chat_id),
+      purchaseHistory,
       preferences,
       notes: row.notes || ''
     };
@@ -802,56 +541,55 @@ export class CustomerMemoryDB {
   /**
    * Salva follow-up imediato executado
    */
-  public saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): void {
+  public async saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): Promise<void> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      db.prepare(`
-        INSERT INTO immediate_followups (chat_id, level, message, attempt, executed_at)
-        VALUES (?, ?, ?, ?, datetime('now'))
-      `).run(chatId, level, message, attempt);
+      await this.postgres.insert('immediate_followups', {
+        chat_id: chatId,
+        level,
+        message,
+        attempt,
+        executed_at: new Date().toISOString()
+      });
     } catch (error) {
-      // Tabela pode não existir em DBs antigos, ignora erro
-      console.warn('Aviso: Tabela immediate_followups não existe ainda');
+      console.error('❌ Erro ao salvar immediate follow-up:', error);
     }
   }
 
   /**
    * Marca cliente como abandonou (não respondeu 5 follow-ups)
    */
-  public markClientAsAbandoned(chatId: string): void {
-    if (this.dbType === 'postgres' ) {
-      return; // TODO: Implementar versão PostgreSQL
-    }
-    const db = this.requireSQLite();
-    db.prepare(`
-      UPDATE user_profiles
-      SET
-        conversation_stage = 'abandonou',
-        last_updated = datetime('now')
-      WHERE chat_id = ?
-    `).run(chatId);
+  public async markClientAsAbandoned(chatId: string): Promise<void> {
+    try {
+      await this.postgres.update(
+        'user_profiles',
+        {
+          conversation_stage: 'abandonou',
+          last_updated: new Date().toISOString()
+        },
+        { chat_id: chatId }
+      );
 
-    console.log(`❌ Cliente ${chatId} marcado como abandonou`);
+      console.log(`❌ Cliente ${chatId} marcado como abandonou`);
+    } catch (error) {
+      console.error('❌ Erro ao marcar cliente como abandonou:', error);
+    }
   }
 
   /**
    * Busca follow-ups imediatos de um chat
    */
-  public getImmediateFollowUps(chatId: string): any[] {
+  public async getImmediateFollowUps(chatId: string): Promise<any[]> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return []; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      return db.prepare(`
-        SELECT * FROM immediate_followups
-        WHERE chat_id = ?
-        ORDER BY executed_at DESC
-      `).all(chatId) as any[];
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM immediate_followups
+         WHERE chat_id = $1
+         ORDER BY executed_at DESC`,
+        [chatId]
+      );
+
+      return result.rows || [];
     } catch (error) {
+      console.error('❌ Erro ao buscar immediate follow-ups:', error);
       return [];
     }
   }
@@ -859,67 +597,55 @@ export class CustomerMemoryDB {
   /**
    * Salva lembrete de agendamento
    */
-  public saveAppointmentReminder(reminder: any): void {
+  public async saveAppointmentReminder(reminder: any): Promise<void> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      db.prepare(`
-        INSERT INTO appointment_reminders
-        (chat_id, service, appointment_time, reminder_time, minutes_before, pet_name, owner_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        reminder.chatId,
-        reminder.service,
-        reminder.appointmentTime.toISOString(),
-        reminder.reminderTime.toISOString(),
-        reminder.minutesBefore,
-        reminder.petName || null,
-        reminder.ownerName || null
-      );
+      await this.postgres.insert('appointment_reminders', {
+        chat_id: reminder.chatId,
+        service: reminder.service,
+        appointment_time: reminder.appointmentTime.toISOString(),
+        reminder_time: reminder.reminderTime.toISOString(),
+        minutes_before: reminder.minutesBefore,
+        pet_name: reminder.petName || null,
+        owner_name: reminder.ownerName || null
+      });
 
       console.log(`📅 Lembrete salvo no banco: ${reminder.service}`);
     } catch (error) {
-      console.warn('Aviso: Tabela appointment_reminders não existe ainda');
+      console.error('❌ Erro ao salvar lembrete:', error);
     }
   }
 
   /**
    * Marca lembrete como enviado
    */
-  public markReminderAsSent(chatId: string, appointmentTimestamp: number): void {
+  public async markReminderAsSent(chatId: string, appointmentTimestamp: number): Promise<void> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      db.prepare(`
-        UPDATE appointment_reminders
-        SET sent = 1, sent_at = datetime('now')
-        WHERE chat_id = ? AND strftime('%s', appointment_time) = ?
-      `).run(chatId, Math.floor(appointmentTimestamp / 1000));
+      await this.postgres.query(
+        `UPDATE appointment_reminders
+         SET sent = true, sent_at = NOW()
+         WHERE chat_id = $1 AND EXTRACT(EPOCH FROM appointment_time) = $2`,
+        [chatId, Math.floor(appointmentTimestamp / 1000)]
+      );
     } catch (error) {
-      // Ignora se tabela não existe
+      console.error('❌ Erro ao marcar lembrete como enviado:', error);
     }
   }
 
   /**
    * Busca lembretes pendentes
    */
-  public getPendingReminders(): any[] {
+  public async getPendingReminders(): Promise<any[]> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return []; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      return db.prepare(`
-        SELECT * FROM appointment_reminders
-        WHERE sent = 0
-        AND datetime(reminder_time) > datetime('now')
-        ORDER BY reminder_time ASC
-      `).all() as any[];
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM appointment_reminders
+         WHERE sent = false
+         AND reminder_time > NOW()
+         ORDER BY reminder_time ASC`
+      );
+
+      return result.rows || [];
     } catch (error) {
+      console.error('❌ Erro ao buscar lembretes pendentes:', error);
       return [];
     }
   }
@@ -933,7 +659,7 @@ export class CustomerMemoryDB {
   /**
    * Salva pagamento no banco
    */
-  public savePayment(payment: {
+  public async savePayment(payment: {
     chatId: string;
     paymentId: string;
     provider: string;
@@ -944,29 +670,20 @@ export class CustomerMemoryDB {
     method: string;
     description?: string;
     paymentUrl?: string;
-  }): void {
+  }): Promise<void> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      db.prepare(`
-        INSERT INTO payments (
-          chat_id, payment_id, provider, amount, original_amount,
-          discount_amount, status, method, description, payment_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        payment.chatId,
-        payment.paymentId,
-        payment.provider,
-        payment.amount,
-        payment.originalAmount || payment.amount,
-        payment.discountAmount || 0,
-        payment.status,
-        payment.method,
-        payment.description || null,
-        payment.paymentUrl || null
-      );
+      await this.postgres.insert('payments', {
+        chat_id: payment.chatId,
+        payment_id: payment.paymentId,
+        provider: payment.provider,
+        amount: payment.amount,
+        original_amount: payment.originalAmount || payment.amount,
+        discount_amount: payment.discountAmount || 0,
+        status: payment.status,
+        method: payment.method,
+        description: payment.description || null,
+        payment_url: payment.paymentUrl || null
+      });
 
       console.log(`💳 Pagamento salvo: ${payment.paymentId} (${payment.status})`);
     } catch (error: any) {
@@ -977,19 +694,19 @@ export class CustomerMemoryDB {
   /**
    * Atualiza status de pagamento
    */
-  public updatePaymentStatus(paymentId: string, status: string): void {
+  public async updatePaymentStatus(paymentId: string, status: string): Promise<void> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return; // TODO: Implementar versão PostgreSQL
+      const updateData: any = { status };
+      if (status === 'confirmed') {
+        updateData.confirmed_at = new Date().toISOString();
       }
-      const db = this.requireSQLite();
-      const confirmedAt = status === 'confirmed' ? Date.now() : null;
 
-      db.prepare(`
-        UPDATE payments
-        SET status = ?, confirmed_at = ?
-        WHERE payment_id = ?
-      `).run(status, confirmedAt, paymentId);
+      await this.postgres.query(
+        `UPDATE payments
+         SET status = $1, confirmed_at = $2
+         WHERE payment_id = $3`,
+        [status, updateData.confirmed_at || null, paymentId]
+      );
 
       console.log(`💳 Status atualizado: ${paymentId} → ${status}`);
     } catch (error: any) {
@@ -1000,16 +717,14 @@ export class CustomerMemoryDB {
   /**
    * Busca pagamento por ID
    */
-  public getPaymentById(paymentId: string): any {
+  public async getPaymentById(paymentId: string): Promise<any> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return null; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      return db.prepare(`
-        SELECT * FROM payments WHERE payment_id = ?
-      `).get(paymentId);
+      return await this.postgres.getOne<any>(
+        `SELECT * FROM payments WHERE payment_id = $1`,
+        [paymentId]
+      );
     } catch (error) {
+      console.error('❌ Erro ao buscar pagamento por ID:', error);
       return null;
     }
   }
@@ -1017,18 +732,18 @@ export class CustomerMemoryDB {
   /**
    * Busca pagamentos de um cliente
    */
-  public getPaymentsByCustomer(chatId: string): any[] {
+  public async getPaymentsByCustomer(chatId: string): Promise<any[]> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return []; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      return db.prepare(`
-        SELECT * FROM payments
-        WHERE chat_id = ?
-        ORDER BY created_at DESC
-      `).all(chatId) as any[];
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM payments
+         WHERE chat_id = $1
+         ORDER BY created_at DESC`,
+        [chatId]
+      );
+
+      return result.rows || [];
     } catch (error) {
+      console.error('❌ Erro ao buscar pagamentos do cliente:', error);
       return [];
     }
   }
@@ -1036,18 +751,17 @@ export class CustomerMemoryDB {
   /**
    * Busca pagamentos pendentes (para monitoramento)
    */
-  public getPendingPayments(): any[] {
+  public async getPendingPayments(): Promise<any[]> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return []; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
-      return db.prepare(`
-        SELECT * FROM payments
-        WHERE status = 'pending'
-        ORDER BY created_at DESC
-      `).all() as any[];
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM payments
+         WHERE status = 'pending'
+         ORDER BY created_at DESC`
+      );
+
+      return result.rows || [];
     } catch (error) {
+      console.error('❌ Erro ao buscar pagamentos pendentes:', error);
       return [];
     }
   }
@@ -1055,29 +769,27 @@ export class CustomerMemoryDB {
   /**
    * Analytics de pagamentos
    */
-  public getPaymentAnalytics(chatId?: string): any {
+  public async getPaymentAnalytics(chatId?: string): Promise<any> {
     try {
-      if (this.dbType === 'postgres' ) {
-        return null; // TODO: Implementar versão PostgreSQL
-      }
-      const db = this.requireSQLite();
       if (chatId) {
-        return db.prepare(`
-          SELECT * FROM payment_analytics WHERE chat_id = ?
-        `).get(chatId);
+        return await this.postgres.getOne<any>(
+          `SELECT * FROM payment_analytics WHERE chat_id = $1`,
+          [chatId]
+        );
       } else {
-        return db.prepare(`
-          SELECT
+        return await this.postgres.getOne<any>(
+          `SELECT
             COUNT(DISTINCT chat_id) as total_customers,
             SUM(total_payments) as total_payments,
             SUM(confirmed_payments) as confirmed_payments,
             SUM(total_revenue) as total_revenue,
             SUM(total_discounts_given) as total_discounts_given,
             AVG(avg_ticket) as avg_ticket
-          FROM payment_analytics
-        `).get();
+          FROM payment_analytics`
+        );
       }
     } catch (error) {
+      console.error('❌ Erro ao buscar analytics de pagamentos:', error);
       return null;
     }
   }
@@ -1086,73 +798,12 @@ export class CustomerMemoryDB {
    * Fecha conexão com banco de dados
    */
   public close(): void {
-    if (this.db) {
-      this.db.close();
-      console.log('📊 CustomerMemoryDB (SQLite) fechado');
-    }
-
     if (this.postgres) {
       this.postgres.close();
       console.log('📊 CustomerMemoryDB (PostgreSQL) desconectado');
     }
   }
 }
-
-/*
- * ====================================================================
- * ⚠️  NOTA IMPORTANTE SOBRE MIGRAÇÃO POSTGRESQL
- * ====================================================================
- *
- * STATUS DA ADAPTAÇÃO:
- *
- * ✅ ADAPTADOS (funcionam com SQLite e PostgreSQL):
- *   - getOrCreateProfile()
- *   - updateProfile()
- *   - saveMessage()
- *   - getRecentMessagesWithIds()
- *   - addResponseTime()
- *   - saveConversionOpportunity()
- *
- * ⚠️  PENDENTES (funcionam APENAS com SQLite):
- *   - getResponseTimeHistory()
- *   - addInterest()
- *   - getInterests()
- *   - addObjection()
- *   - getObjections()
- *   - addPurchase()
- *   - getPurchaseHistory()
- *   - scheduleFollowUp()
- *   - getPendingFollowUps()
- *   - markFollowUpExecuted()
- *   - getActiveConversionOpportunities()
- *   - saveImmediateFollowUp()
- *   - markClientAsAbandoned()
- *   - getImmediateFollowUps()
- *   - saveAppointmentReminder()
- *   - markReminderAsSent()
- *   - getPendingReminders()
- *   - savePayment()
- *   - updatePaymentStatus()
- *   - getPaymentById()
- *   - getPaymentsByCustomer()
- *   - getPendingPayments()
- *   - getPaymentAnalytics()
- *
- * 📋 PRÓXIMOS PASSOS:
- *   1. Adaptar métodos restantes seguindo o padrão:
- *      - Criar método público async que roteia para SQLite ou PostgreSQL
- *      - Criar método privado *SQLite() com lógica original
- *      - Criar método privado *Postgres() com lógica adaptada
- *   2. Atualizar queries SQL de timestamp (SQLite usa DATETIME, PostgreSQL usa TIMESTAMP)
- *   3. Atualizar queries de JSON (SQLite usa JSON string, PostgreSQL usa JSONB)
- *
- * 🎯 ESTRATÉGIA ATUAL:
- *   - Manter SQLite funcionando (100% compatível para dev)
- *   - PostgreSQL direto para produção (DATABASE_URL)
- *   - Redis para cache de performance
- *
- * ====================================================================
- */
 
 // Re-export types for external use
 export type { UserProfile, Purchase, ScheduledFollowUp, ConversionOpportunity } from '../types/UserProfile';

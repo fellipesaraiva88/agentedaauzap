@@ -6,7 +6,7 @@
 
 ## 🎯 OBJETIVO
 
-Integrar o sistema de memória de clientes (PostgreSQL + Redis + SQLite fallback) com seu serviço WAHA em produção.
+Integrar o sistema de memória de clientes (PostgreSQL + Redis) com seu serviço WAHA em produção.
 
 **Arquitetura:**
 ```
@@ -14,7 +14,7 @@ WAHA (WhatsApp API)
     ↓
 Agente Bot (Node.js + TypeScript)
     ↓
-PostgreSQL (Database) + Redis (Cache) + SQLite (Fallback)
+PostgreSQL (Database - OBRIGATÓRIO) + Redis (Cache)
 ```
 
 ---
@@ -155,14 +155,7 @@ Use o `docker-compose.yml` do projeto:
 docker-compose up -d postgres redis
 ```
 
-### **Opção 3: SQLite Fallback (Apenas Dev)**
-
-Sem configurar DATABASE_URL, o sistema usa SQLite local:
-
-**⚠️ IMPORTANTE:** SQLite é apenas para desenvolvimento local. Em produção:
-- Dados não são persistidos entre deploys
-- Sem cache Redis
-- Performance limitada
+**⚠️ IMPORTANTE:** PostgreSQL é obrigatório em todos os ambientes (produção e desenvolvimento)
 
 ---
 
@@ -203,21 +196,13 @@ docker-compose logs -f waha
    ✅ Performance máxima com cache
 ```
 
-**⚠️ Apenas PostgreSQL (Bom):**
+**⚠️ Apenas PostgreSQL (Funcional, mas sem cache):**
 ```
 ✅ PostgreSQL conectado com sucesso
 ℹ️  REDIS_URL não configurado - cache desabilitado
 
 📊 CustomerMemoryDB: POSTGRESQL (sem cache)
    💡 Configure REDIS_URL para melhor performance
-```
-
-**ℹ️ SQLite Fallback (Apenas Dev):**
-```
-ℹ️  DATABASE_URL não configurado - usando SQLite local
-
-📊 CustomerMemoryDB: SQLITE (fallback local)
-   💡 Configure DATABASE_URL para produção
 ```
 
 ---
@@ -244,11 +229,6 @@ Deve aparecer:
 **PostgreSQL:**
 ```sql
 SELECT * FROM user_profiles ORDER BY updated_at DESC LIMIT 5;
-```
-
-**SQLite:**
-```bash
-sqlite3 data/customers.db "SELECT * FROM user_profiles LIMIT 5;"
 ```
 
 ### **4. Verificar Cache Redis:**
@@ -289,9 +269,10 @@ GET "customer:5511999999999"
 ### **❌ "DATABASE_URL não configurado"**
 
 **Solução:**
-1. Adicione DATABASE_URL nas variáveis de ambiente
-2. Use formato: `postgres://user:pass@host:5432/database`
-3. Reinicie o serviço
+1. PostgreSQL é OBRIGATÓRIO
+2. Adicione DATABASE_URL nas variáveis de ambiente
+3. Use formato: `postgres://user:pass@host:5432/database`
+4. Reinicie o serviço
 
 ### **❌ "Connection refused"**
 
@@ -306,13 +287,6 @@ GET "customer:5511999999999"
 1. Verifique senha no DATABASE_URL
 2. Verifique usuário tem permissões
 3. Verifique se database existe
-
-### **❌ "Usando SQLite fallback em produção"**
-
-**Solução:**
-1. Configure DATABASE_URL
-2. SQLite não persiste em deploys
-3. Dados serão perdidos no próximo deploy
 
 ### **⚠️ Performance lenta**
 
@@ -374,7 +348,6 @@ Após configurar corretamente:
 
 ✅ Bot salvando dados em PostgreSQL
 ✅ Cache Redis para performance máxima
-✅ SQLite como fallback local (dev)
 ✅ Sistema escalável e profissional
 ✅ Backups automáticos
 ✅ Dados persistentes entre deploys
@@ -384,5 +357,5 @@ Após configurar corretamente:
 ---
 
 **Atualizado**: Janeiro 2025
-**Arquitetura**: PostgreSQL + Redis + SQLite (fallback)
+**Stack**: PostgreSQL (obrigatório) + Redis (recomendado)
 **Status**: Sistema em produção

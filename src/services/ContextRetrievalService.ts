@@ -1,5 +1,4 @@
 import { CustomerMemoryDB } from './CustomerMemoryDB';
-import Database from 'better-sqlite3';
 
 /**
  * CONTEXTO COMPLETO RECUPERADO
@@ -93,299 +92,82 @@ export class ContextRetrievalService {
    * Recupera snapshot completo de contexto
    */
   public async getFullContext(chatId: string): Promise<ContextSnapshot> {
-    const db = this.getDB();
-
-    if (!db) {
-      throw new Error('Database não está disponível');
-    }
-
-    // 1. DADOS DO TUTOR
-    const tutor = this.getTutorData(db, chatId);
-
-    // 2. PETS
-    const pets = this.getPetsData(db, tutor?.tutorId);
-
-    // 3. HISTÓRICO EMOCIONAL
-    const ultimasEmocoes = this.getEmotionalHistory(db, chatId);
-
-    // 4. SERVIÇOS ANTERIORES
-    const servicosAnteriores = this.getServiceHistory(db, tutor?.tutorId);
-
-    // 5. PREFERÊNCIAS
-    const preferencias = this.getPreferences(db, tutor?.tutorId);
-
-    // 6. ÚLTIMA CONVERSA
-    const ultimaConversa = this.getLastConversation(db, chatId);
-
-    // 7. ESTATÍSTICAS
-    const stats = this.getStats(db, tutor?.tutorId, servicosAnteriores);
-
-    // 8. FLAGS
-    const flags = this.generateFlags(tutor, pets, stats, ultimaConversa);
-
-    return {
-      tutor,
-      pets,
-      ultimasEmocoes,
-      servicosAnteriores,
-      preferencias,
-      ultimaConversa,
-      stats,
-      flags
-    };
+    // TODO: Migrar para PostgreSQL via CustomerMemoryDB
+    // As tabelas necessárias (tutors, pets, emotional_context, service_history,
+    // conversation_episodes, learned_preferences) não existem no PostgreSQL atual
+    throw new Error('TODO: Migrar getFullContext para PostgreSQL - tabelas ainda não existem');
   }
 
   /**
    * Recupera dados do tutor
+   * TODO: Migrar para PostgreSQL - tabela 'tutors' não existe
    */
-  private getTutorData(db: Database.Database, chatId: string): ContextSnapshot['tutor'] {
-    try {
-      const result = db.prepare(`
-        SELECT
-          t.tutor_id,
-          t.nome,
-          t.estilo_comunicacao,
-          t.horario_preferido,
-          t.metodo_pagamento_preferido,
-          (
-            SELECT ce.arquetipo_detectado
-            FROM conversation_episodes ce
-            WHERE ce.tutor_id = t.tutor_id
-            ORDER BY ce.inicio_conversa DESC
-            LIMIT 1
-          ) as arquetipo_frequente
-        FROM tutors t
-        WHERE t.chat_id = ?
-      `).get(chatId) as any;
-
-      if (!result) return null;
-
-      return {
-        tutorId: result.tutor_id,
-        nome: result.nome,
-        estiloComum: result.estilo_comunicacao || 'casual',
-        arquetipoFrequente: result.arquetipo_frequente || 'desconhecido',
-        horarioPreferido: result.horario_preferido,
-        metodoPagamentoPreferido: result.metodo_pagamento_preferido
-      };
-    } catch (error) {
-      console.warn('Tabela tutors ainda não existe - usando fallback');
-      return null;
-    }
+  private getTutorData(chatId: string): ContextSnapshot['tutor'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela tutors existir
+    return null;
   }
 
   /**
    * Recupera dados dos pets
+   * TODO: Migrar para PostgreSQL - tabela 'pets' não existe
    */
-  private getPetsData(db: Database.Database, tutorId?: string): ContextSnapshot['pets'] {
-    if (!tutorId) return [];
-
-    try {
-      const results = db.prepare(`
-        SELECT
-          p.pet_id,
-          p.nome,
-          p.especie,
-          p.raca,
-          p.porte,
-          CAST((julianday('now') - julianday(p.data_nascimento)) / 365.25 AS INTEGER) as idade,
-          p.temperamento,
-          p.proxima_vacina,
-          MAX(sh.data_servico) as ultimo_servico
-        FROM pets p
-        LEFT JOIN service_history sh ON p.pet_id = sh.pet_id
-        WHERE p.tutor_id = ? AND p.ativo = TRUE
-        GROUP BY p.pet_id
-        ORDER BY p.nome
-      `).all(tutorId) as any[];
-
-      return results.map(r => ({
-        petId: r.pet_id,
-        nome: r.nome,
-        especie: r.especie,
-        raca: r.raca,
-        porte: r.porte,
-        idade: r.idade,
-        temperamento: r.temperamento,
-        ultimoServico: r.ultimo_servico ? new Date(r.ultimo_servico) : undefined,
-        proximaVacina: r.proxima_vacina ? new Date(r.proxima_vacina) : undefined
-      }));
-    } catch (error) {
-      return [];
-    }
+  private getPetsData(tutorId?: string): ContextSnapshot['pets'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela pets existir
+    return [];
   }
 
   /**
    * Recupera histórico emocional
+   * TODO: Migrar para PostgreSQL - tabela 'emotional_context' não existe
    */
-  private getEmotionalHistory(db: Database.Database, chatId: string): ContextSnapshot['ultimasEmocoes'] {
-    try {
-      const results = db.prepare(`
-        SELECT
-          emocao_primaria,
-          intensidade,
-          timestamp,
-          contexto
-        FROM emotional_context
-        WHERE chat_id = ?
-        ORDER BY timestamp DESC
-        LIMIT 5
-      `).all(chatId) as any[];
-
-      return results.map(r => ({
-        emocao: r.emocao_primaria,
-        intensidade: r.intensidade,
-        data: new Date(r.timestamp),
-        contexto: r.contexto
-      }));
-    } catch (error) {
-      return [];
-    }
+  private getEmotionalHistory(chatId: string): ContextSnapshot['ultimasEmocoes'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela emotional_context existir
+    return [];
   }
 
   /**
    * Recupera histórico de serviços
+   * TODO: Migrar para PostgreSQL - tabela 'service_history' não existe
    */
-  private getServiceHistory(db: Database.Database, tutorId?: string): ContextSnapshot['servicosAnteriores'] {
-    if (!tutorId) return [];
-
-    try {
-      const results = db.prepare(`
-        SELECT
-          servico_tipo,
-          data_servico,
-          satisfacao_cliente,
-          valor_pago
-        FROM service_history
-        WHERE tutor_id = ?
-        ORDER BY data_servico DESC
-        LIMIT 50
-      `).all(tutorId) as any[];
-
-      return results.map(r => ({
-        tipo: r.servico_tipo,
-        data: new Date(r.data_servico),
-        satisfacao: r.satisfacao_cliente,
-        valor: r.valor_pago
-      }));
-    } catch (error) {
-      return [];
-    }
+  private getServiceHistory(tutorId?: string): ContextSnapshot['servicosAnteriores'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela service_history existir
+    return [];
   }
 
   /**
    * Recupera preferências aprendidas
+   * TODO: Migrar para PostgreSQL - tabela 'learned_preferences' não existe
    */
-  private getPreferences(db: Database.Database, tutorId?: string): ContextSnapshot['preferencias'] {
-    if (!tutorId) return {};
-
-    try {
-      const results = db.prepare(`
-        SELECT
-          categoria,
-          preferencia_chave,
-          preferencia_valor,
-          confianca
-        FROM learned_preferences
-        WHERE tutor_id = ? AND ativo = TRUE AND confianca > 0.5
-        ORDER BY confianca DESC
-      `).all(tutorId) as any[];
-
-      const prefs: ContextSnapshot['preferencias'] = {
-        servicos: []
-      };
-
-      results.forEach(r => {
-        if (r.categoria === 'horario') prefs.horario = r.preferencia_valor;
-        if (r.categoria === 'comunicacao') prefs.comunicacao = r.preferencia_valor;
-        if (r.categoria === 'preco') prefs.preco = r.preferencia_valor;
-        if (r.categoria === 'servico') prefs.servicos?.push(r.preferencia_valor);
-      });
-
-      return prefs;
-    } catch (error) {
-      return {};
-    }
+  private getPreferences(tutorId?: string): ContextSnapshot['preferencias'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela learned_preferences existir
+    return {};
   }
 
   /**
    * Recupera última conversa
+   * TODO: Migrar para PostgreSQL - tabela 'conversation_episodes' não existe
    */
-  private getLastConversation(db: Database.Database, chatId: string): ContextSnapshot['ultimaConversa'] {
-    try {
-      const result = db.prepare(`
-        SELECT
-          inicio_conversa,
-          resultado,
-          intencao_principal,
-          valor_venda
-        FROM conversation_episodes
-        WHERE chat_id = ?
-        ORDER BY inicio_conversa DESC
-        LIMIT 1
-      `).get(chatId) as any;
-
-      if (!result) return undefined;
-
-      return {
-        data: new Date(result.inicio_conversa),
-        resultado: result.resultado,
-        intencao: result.intencao_principal,
-        valorVenda: result.valor_venda
-      };
-    } catch (error) {
-      return undefined;
-    }
+  private getLastConversation(chatId: string): ContextSnapshot['ultimaConversa'] {
+    // TODO: Implementar usando CustomerMemoryDB quando tabela conversation_episodes existir
+    return undefined;
   }
 
   /**
    * Calcula estatísticas
+   * TODO: Migrar para PostgreSQL - depende de tabelas não existentes
    */
   private getStats(
-    db: Database.Database,
     tutorId: string | undefined,
     servicosAnteriores: ContextSnapshot['servicosAnteriores']
   ): ContextSnapshot['stats'] {
-    const totalServicos = servicosAnteriores.length;
-    const valorTotalGasto = servicosAnteriores.reduce((sum, s) => sum + (s.valor || 0), 0);
-    const satisfacaoMedia = servicosAnteriores.length > 0
-      ? servicosAnteriores.filter(s => s.satisfacao).reduce((sum, s) => sum + (s.satisfacao || 0), 0) / servicosAnteriores.filter(s => s.satisfacao).length
-      : undefined;
-
-    const diasDesdeUltimoServico = servicosAnteriores.length > 0
-      ? Math.floor((Date.now() - servicosAnteriores[0].data.getTime()) / (1000 * 60 * 60 * 24))
-      : undefined;
-
-    // Conversões (quantas conversas terminaram em venda)
-    let conversoes = 0;
-    let totalConversas = 0;
-
-    if (tutorId) {
-      try {
-        const convResult = db.prepare(`
-          SELECT
-            COUNT(*) as total,
-            SUM(CASE WHEN resultado = 'agendamento_confirmado' THEN 1 ELSE 0 END) as conversoes
-          FROM conversation_episodes
-          WHERE tutor_id = ?
-        `).get(tutorId) as any;
-
-        totalConversas = convResult?.total || 0;
-        conversoes = convResult?.conversoes || 0;
-      } catch (error) {
-        // Tabela não existe ainda
-      }
-    }
-
-    const taxaConversao = totalConversas > 0 ? conversoes / totalConversas : 0;
-
+    // TODO: Implementar usando CustomerMemoryDB quando tabelas existirem
     return {
-      totalServicos,
-      valorTotalGasto,
-      satisfacaoMedia,
-      diasDesdeUltimoServico,
-      conversoes,
-      taxaConversao
+      totalServicos: 0,
+      valorTotalGasto: 0,
+      satisfacaoMedia: undefined,
+      diasDesdeUltimoServico: undefined,
+      conversoes: 0,
+      taxaConversao: 0
     };
   }
 
@@ -538,16 +320,5 @@ export class ContextRetrievalService {
     prompt += '═══════════════════════════════════════════════════════════════\n\n';
 
     return prompt;
-  }
-
-  /**
-   * Helper para acessar DB
-   */
-  private getDB(): Database.Database | null {
-    try {
-      return (this.memoryDB as any).db || null;
-    } catch {
-      return null;
-    }
   }
 }

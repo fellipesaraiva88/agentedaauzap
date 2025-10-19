@@ -2,20 +2,17 @@
 
 ## 📋 ARQUITETURA ATUAL
 
-O sistema utiliza uma arquitetura de três camadas para máxima performance e confiabilidade:
+O sistema utiliza uma arquitetura de duas camadas para máxima performance e confiabilidade:
 
 ```
-PostgreSQL (Database Principal)
+PostgreSQL (Database Principal - OBRIGATÓRIO)
     ↓
 Redis (Cache de Alta Performance)
-    ↓
-SQLite (Fallback Local)
 ```
 
-**Camadas:**
-1. **PostgreSQL** - Banco de dados principal em produção
+**Stack:**
+1. **PostgreSQL** - Banco de dados obrigatório (produção e desenvolvimento)
 2. **Redis** - Cache em memória para performance 10-100x melhor
-3. **SQLite** - Fallback local para desenvolvimento/testes
 
 ---
 
@@ -80,21 +77,6 @@ REDIS_URL=redis://default:pass@redis.railway.app:6379
 
 ---
 
-## ✅ SOLUÇÃO 3: Apenas SQLite (Desenvolvimento Local)
-
-Para desenvolvimento rápido sem configurar PostgreSQL/Redis:
-
-```bash
-# .env
-# Comentar ou remover DATABASE_URL e REDIS_URL
-# DATABASE_URL=...
-# REDIS_URL=...
-```
-
-O sistema usará SQLite automaticamente como fallback.
-
----
-
 ## 🧪 COMO TESTAR CONEXÕES
 
 ### Test PostgreSQL:
@@ -122,18 +104,6 @@ redis-cli -h localhost -p 6379 -a sua_senha
 # Testar:
 PING
 # Deve retornar: PONG
-```
-
-### Test SQLite:
-
-```bash
-# Ver arquivo do banco:
-ls -lh data/customers.db
-
-# Abrir no SQLite:
-sqlite3 data/customers.db
-.tables
-.schema user_profiles
 ```
 
 ---
@@ -173,17 +143,6 @@ sqlite3 data/customers.db
    💡 Configure REDIS_URL para melhor performance
 ```
 
-### ℹ️ Fallback SQLite (Desenvolvimento):
-
-```
-ℹ️  DATABASE_URL não configurado - usando SQLite local
-ℹ️  REDIS_URL não configurado - cache desabilitado
-
-📊 CustomerMemoryDB: SQLITE (fallback local)
-   💡 Configure DATABASE_URL e REDIS_URL para produção
-   📁 Dados salvos em: /app/data/customers.db
-```
-
 ---
 
 ## 🚀 RECOMENDAÇÃO POR AMBIENTE
@@ -211,19 +170,13 @@ Todos os serviços na mesma rede, hostnames funcionam automaticamente.
 
 ### 💻 DESENVOLVIMENTO LOCAL
 
-**Opção 1 - SQLite (mais simples):**
-```bash
-# Sem configurar nada, usa fallback local
-npm start
-```
-
-**Opção 2 - PostgreSQL local:**
+**PostgreSQL + Redis local:**
 ```bash
 # Instalar PostgreSQL e Redis localmente
 brew install postgresql redis  # macOS
 sudo apt install postgresql redis  # Linux
 
-# Configurar .env
+# Configurar .env (obrigatório)
 DATABASE_URL=postgres://postgres:senha@localhost:5432/auzap
 REDIS_URL=redis://localhost:6379
 ```
@@ -316,16 +269,6 @@ redis-cli -a senha INFO memory
 redis-cli -a senha KEYS "customer:*"
 ```
 
-### SQLite Stats
-
-```bash
-# Tamanho do arquivo
-ls -lh data/customers.db
-
-# Número de registros
-sqlite3 data/customers.db "SELECT COUNT(*) FROM user_profiles;"
-```
-
 ---
 
 ## 🆘 TROUBLESHOOTING
@@ -339,9 +282,8 @@ sqlite3 data/customers.db "SELECT COUNT(*) FROM user_profiles;"
 ### "Password authentication failed"
 → Senha incorreta no DATABASE_URL.
 
-### "CustomerMemoryDB: SQLITE (fallback)"
-→ DATABASE_URL não configurado ou conexão falhou.
-→ Sistema usa SQLite como fallback (funciona, mas só local).
+### "DATABASE_URL não configurado"
+→ PostgreSQL é obrigatório. Configure DATABASE_URL imediatamente.
 
 ### "REDIS_URL não configurado"
 → Sistema funciona sem Redis, mas performance será menor.
@@ -359,11 +301,11 @@ sqlite3 data/customers.db "SELECT COUNT(*) FROM user_profiles;"
 1. **Escolha seu ambiente:**
    - Produção: PostgreSQL + Redis gerenciados
    - Docker: docker-compose.yml
-   - Desenvolvimento: SQLite (fallback)
+   - Desenvolvimento: PostgreSQL + Redis local
 
-2. **Configure as variáveis:**
-   - DATABASE_URL (PostgreSQL)
-   - REDIS_URL (Redis)
+2. **Configure as variáveis (obrigatório):**
+   - DATABASE_URL (PostgreSQL) - OBRIGATÓRIO
+   - REDIS_URL (Redis) - Recomendado
 
 3. **Teste as conexões:**
    - Use os comandos acima para verificar
@@ -391,5 +333,5 @@ sqlite3 data/customers.db "SELECT COUNT(*) FROM user_profiles;"
 ---
 
 **Criado**: Janeiro 2025
-**Arquitetura**: PostgreSQL (database) + Redis (cache) + SQLite (fallback)
+**Stack**: PostgreSQL (database - obrigatório) + Redis (cache - recomendado)
 **Performance**: 10-100x melhor com cache Redis

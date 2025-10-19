@@ -1,7 +1,7 @@
 # 🚀 CONFIGURAR RENDER - DEPLOY PRODUÇÃO
 
 > **Service ID:** srv-d3nv898dl3ps73dmr180
-> **Arquitetura:** PostgreSQL + Redis + SQLite (fallback)
+> **Stack:** PostgreSQL (obrigatório) + Redis (recomendado)
 
 ---
 
@@ -187,19 +187,6 @@ https://dashboard.render.com/web/srv-d3nv898dl3ps73dmr180/logs
 ✅ Sistema pronto!
 ```
 
-#### ℹ️ **DESENVOLVIMENTO - SQLite Fallback:**
-```
-ℹ️  DATABASE_URL não configurado - usando SQLite local
-ℹ️  REDIS_URL não configurado - cache desabilitado
-
-📊 CustomerMemoryDB: SQLITE (fallback local)
-   💡 Configure DATABASE_URL e REDIS_URL para produção
-   ⚠️  Dados serão perdidos no próximo deploy!
-
-🤖 Bot conectado: agenteauzap
-✅ Sistema rodando (modo desenvolvimento)
-```
-
 ---
 
 ## ⚠️ TROUBLESHOOTING
@@ -231,10 +218,10 @@ https://dashboard.render.com/web/srv-d3nv898dl3ps73dmr180/logs
 - Redis é opcional - sistema funciona sem ele
 - Se não precisa de cache, remova REDIS_URL
 
-### **❌ "Usando SQLite fallback em produção"**
-- DATABASE_URL não configurado ou conexão falhou
-- **PROBLEMA:** SQLite não persiste em deploys no Render
-- **SOLUÇÃO:** Configure DATABASE_URL obrigatoriamente
+### **❌ "DATABASE_URL não configurado"**
+- PostgreSQL é OBRIGATÓRIO em produção
+- Configure DATABASE_URL imediatamente
+- Sistema não funcionará sem PostgreSQL
 
 ### **⚠️ Performance lenta**
 - Configure REDIS_URL para cache
@@ -262,10 +249,10 @@ https://dashboard.render.com/web/srv-d3nv898dl3ps73dmr180/settings
 
 ## 🎯 CONFIGURAÇÃO RECOMENDADA
 
-### **Para Produção (Recomendado):**
+### **Para Produção (Ideal):**
 
 ```bash
-# PostgreSQL (obrigatório)
+# PostgreSQL (OBRIGATÓRIO)
 DATABASE_URL=postgres://user:pass@host.render.com:5432/database
 
 # Redis (recomendado para performance)
@@ -284,7 +271,7 @@ NODE_ENV=production
 ### **Para Testes (Econômico):**
 
 ```bash
-# PostgreSQL externo com free tier (Railway/Neon)
+# PostgreSQL externo com free tier (Railway/Neon) - OBRIGATÓRIO
 DATABASE_URL=postgres://user:pass@free-tier-host:5432/db
 
 # Sem Redis (funciona, mas mais lento)
@@ -377,9 +364,8 @@ KEYS "customer:*"
 Depois de configurar corretamente:
 
 ✅ Bot rodando no Render
-✅ PostgreSQL como database principal
+✅ PostgreSQL como database obrigatório
 ✅ Redis para cache (10-100x mais rápido)
-✅ SQLite como fallback local (apenas dev)
 ✅ Dados persistentes entre deploys
 ✅ Backups automáticos (managed database)
 ✅ Sistema escalável e profissional
@@ -389,6 +375,6 @@ Depois de configurar corretamente:
 ---
 
 **Atualizado**: Janeiro 2025
-**Arquitetura**: PostgreSQL (database) + Redis (cache) + SQLite (fallback)
+**Stack**: PostgreSQL (obrigatório) + Redis (recomendado)
 **Performance**: 10-100x melhor com cache Redis
 **Status**: Pronto para produção

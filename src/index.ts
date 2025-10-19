@@ -6,7 +6,6 @@ import { HumanDelay } from './services/HumanDelay';
 import { MessageProcessor } from './services/MessageProcessor';
 import { CustomerMemoryDB } from './services/CustomerMemoryDB';
 import { AudioTranscriptionService } from './services/AudioTranscriptionService';
-import { DatabaseMigration } from './services/DatabaseMigration';
 import { AsaasPaymentService } from './services/AsaasPaymentService';
 import { PixDiscountManager } from './services/PixDiscountManager';
 import { ContextRetrievalService } from './services/ContextRetrievalService';
@@ -27,7 +26,6 @@ const WAHA_API_KEY = process.env.WAHA_API_KEY!;
 const WAHA_SESSION = process.env.WAHA_SESSION || 'default';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const GROQ_API_KEY = process.env.GROQ_API_KEY!;
-const DB_PATH = process.env.DB_PATH || './data/customers.db';
 
 // Configurações Asaas (opcional - controlado por flag)
 const ENABLE_PIX_PAYMENTS = process.env.ENABLE_PIX_PAYMENTS === 'true';
@@ -57,15 +55,8 @@ console.log('🚀 Iniciando Sistema ULTRA-HUMANIZADO');
 console.log('🚀 Saraiva Pets - Marina IA Comportamental');
 console.log('🚀 ========================================\n');
 
-// Executa migrations do banco de dados
-console.log('🔧 Executando migrations do banco de dados...');
-const migration = new DatabaseMigration(DB_PATH);
-migration.runMigrations();
-migration.close();
-console.log('');
-
 // Inicializa serviços
-const memoryDB = new CustomerMemoryDB(DB_PATH);
+const memoryDB = new CustomerMemoryDB();
 const wahaService = new WahaService(WAHA_API_URL, WAHA_API_KEY, WAHA_SESSION);
 const openaiService = new OpenAIService(OPENAI_API_KEY);
 const audioService = new AudioTranscriptionService(GROQ_API_KEY);

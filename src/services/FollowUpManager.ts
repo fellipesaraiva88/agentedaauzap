@@ -4,9 +4,9 @@ import { CustomerMemoryDB } from './CustomerMemoryDB';
 export class FollowUpManager {
   constructor(private db: CustomerMemoryDB) {}
 
-  public shouldScheduleFollowUp(profile: UserProfile, lastMessageAgo: number): boolean {
+  public async shouldScheduleFollowUp(profile: UserProfile, lastMessageAgo: number): Promise<boolean> {
     // Não agendar se já tem follow-up pendente
-    const pending = this.db.getPendingFollowUps();
+    const pending = await this.db.getPendingFollowUps();
     if (pending.some(f => f.chatId === profile.chatId)) return false;
 
     // Não agendar se já tentou 3 vezes
@@ -54,11 +54,11 @@ export class FollowUpManager {
     return `Oi! Saudades! Se precisar de algo pro ${pet}, pode me chamar! ❤️`;
   }
 
-  public processPendingFollowUps(): ScheduledFollowUp[] {
-    return this.db.getPendingFollowUps();
+  public async processPendingFollowUps(): Promise<ScheduledFollowUp[]> {
+    return await this.db.getPendingFollowUps();
   }
 
-  public markAsExecuted(chatId: string): void {
-    this.db.markFollowUpExecuted(chatId);
+  public async markAsExecuted(chatId: string): Promise<void> {
+    await this.db.markFollowUpExecuted(chatId);
   }
 }

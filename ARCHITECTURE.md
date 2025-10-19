@@ -8,8 +8,8 @@ Sistema de automação de atendimento via WhatsApp com IA, construído para alta
 
 ## Stack de Dados
 
-### PostgreSQL (Database Principal - Production)
-- **Propósito**: Armazenamento persistente de dados relacionais
+### PostgreSQL (Database)
+- **Propósito**: Database único e obrigatório para armazenamento persistente
 - **Conexão**: `DATABASE_URL`
 - **Host**: `31.97.255.95:3004`
 - **Tabelas**: 16 tabelas principais
@@ -30,8 +30,8 @@ Sistema de automação de atendimento via WhatsApp com IA, construído para alta
   - `campaigns` - Campanhas de marketing
   - `campaign_recipients` - Destinatários das campanhas
 
-### Redis (Cache e Sessions)
-- **Propósito**: Cache de alta performance e gerenciamento de sessões
+### Redis (Cache)
+- **Propósito**: Cache de alta performance (10-100x mais rápido)
 - **Conexão**: `REDIS_URL`
 - **Host**: `31.97.255.95:3005`
 - **Dados em Cache**:
@@ -41,15 +41,16 @@ Sistema de automação de atendimento via WhatsApp com IA, construído para alta
   - Dados de sessão
   - Resultados de queries frequentes
 
-### SQLite (Fallback - Development)
-- **Propósito**: Desenvolvimento local e fallback
-- **Usado quando**: PostgreSQL não está disponível
-- **Path**: `./data/customers.db`
-- **Nota**: Apenas para ambiente de desenvolvimento
-
 ---
 
 ## Fluxo de Dados
+
+### Arquitetura
+```
+PostgreSQL (Database)
+    ↓
+Redis (Cache 10-100x)
+```
 
 ### Leitura (Read Flow)
 ```
@@ -74,24 +75,6 @@ Sistema de automação de atendimento via WhatsApp com IA, construído para alta
 - **Cache Hit**: ~1-5ms (Redis)
 - **Cache Miss**: ~50-200ms (PostgreSQL + Redis store)
 - **Improvement**: 10-100x mais rápido em operações repetidas
-
----
-
-## Prioridade de Conexão
-
-### Database Connection Priority
-```
-1. DATABASE_URL (PostgreSQL) - PRODUCTION
-   ↓ (se falhar)
-2. SQLite (./data/customers.db) - FALLBACK
-```
-
-### Cache Connection Priority
-```
-1. REDIS_URL (Redis) - PRODUCTION
-   ↓ (se falhar)
-2. Memory Cache - FALLBACK (limitado)
-```
 
 ---
 
@@ -265,9 +248,8 @@ user_profiles
 - **WhatsApp**: Baileys
 
 ### Database
-- **Primary**: PostgreSQL 14+
+- **Database**: PostgreSQL 14+
 - **Cache**: Redis 7+
-- **Fallback**: SQLite 3
 
 ### Infrastructure
 - **Deployment**: Render (containerized)
@@ -337,9 +319,6 @@ NODE_ENV=production
 
 ### Optional Variables
 ```bash
-# Fallback SQLite
-SQLITE_PATH=./data/customers.db
-
 # Cache TTL (seconds)
 CACHE_TTL_PROFILES=3600
 CACHE_TTL_MESSAGES=900
@@ -363,8 +342,8 @@ App Instance(s)
 ### Development (Local)
 ```
 localhost:3000
-   ├─→ PostgreSQL (remote) or SQLite (local)
-   └─→ Redis (remote) or Memory Cache
+   ├─→ PostgreSQL (31.97.255.95:3004)
+   └─→ Redis (31.97.255.95:3005)
 ```
 
 ---

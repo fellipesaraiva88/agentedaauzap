@@ -1,6 +1,5 @@
 import { CustomerMemoryDB } from './CustomerMemoryDB';
 import { InformationExtractor } from './InformationExtractor';
-import Database from 'better-sqlite3';
 
 /**
  * ESTÁGIOS DO ONBOARDING PROGRESSIVO
@@ -140,79 +139,26 @@ export class OnboardingManager {
    * Obtém progresso atual do onboarding
    */
   public getProgress(chatId: string): OnboardingProgress {
-    const db = this.getDB();
+    // TODO: Implementar getOnboardingProgress no CustomerMemoryDB
+    console.warn('getProgress - método temporário sem persistência');
 
-    try {
-      const result = db.prepare(`
-        SELECT
-          stage_atual,
-          campos_coletados,
-          campos_pendentes,
-          progresso_percentual,
-          dados_temporarios,
-          completo
-        FROM onboarding_progress
-        WHERE chat_id = ?
-      `).get(chatId) as any;
-
-      if (!result) {
-        // Cria novo progresso
-        this.createProgress(chatId);
-        return this.getProgress(chatId);
-      }
-
-      return {
-        chatId,
-        stageAtual: result.stage_atual as OnboardingStage,
-        camposColetados: JSON.parse(result.campos_coletados || '[]'),
-        camposPendentes: JSON.parse(result.campos_pendentes || '[]'),
-        progressoPercentual: result.progresso_percentual,
-        dadosTemporarios: JSON.parse(result.dados_temporarios || '{}'),
-        completo: result.completo === 1
-      };
-    } catch (error) {
-      console.warn('Tabela onboarding_progress não existe - criando progresso in-memory');
-      return {
-        chatId,
-        stageAtual: OnboardingStage.INICIAL,
-        camposColetados: [],
-        camposPendentes: [...this.REQUIRED_FIELDS, ...this.OPTIONAL_FIELDS],
-        progressoPercentual: 0,
-        dadosTemporarios: {},
-        completo: false
-      };
-    }
+    return {
+      chatId,
+      stageAtual: OnboardingStage.INICIAL,
+      camposColetados: [],
+      camposPendentes: [...this.REQUIRED_FIELDS, ...this.OPTIONAL_FIELDS],
+      progressoPercentual: 0,
+      dadosTemporarios: {},
+      completo: false
+    };
   }
 
   /**
    * Cria novo progresso de onboarding
    */
   private createProgress(chatId: string): void {
-    const db = this.getDB();
-
-    try {
-      db.prepare(`
-        INSERT INTO onboarding_progress (
-          chat_id,
-          stage_atual,
-          campos_coletados,
-          campos_pendentes,
-          progresso_percentual,
-          dados_temporarios,
-          completo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        chatId,
-        OnboardingStage.INICIAL,
-        JSON.stringify([]),
-        JSON.stringify([...this.REQUIRED_FIELDS, ...this.OPTIONAL_FIELDS]),
-        0,
-        JSON.stringify({}),
-        0
-      );
-    } catch (error) {
-      console.warn('Não foi possível criar progresso no banco');
-    }
+    // TODO: Implementar createOnboardingProgress no CustomerMemoryDB
+    console.warn('createProgress - método temporário sem persistência');
   }
 
   /**
@@ -398,157 +344,48 @@ export class OnboardingManager {
    * Finaliza onboarding e cria registros permanentes
    */
   private finalizeOnboarding(chatId: string, progress: OnboardingProgress): void {
-    const db = this.getDB();
     const dados = progress.dadosTemporarios;
 
-    try {
-      // 1. Cria/atualiza tutor
-      const tutorId = this.createOrUpdateTutor(chatId, dados);
+    // TODO: Implementar finalizeOnboarding no CustomerMemoryDB
+    console.log(`✅ Onboarding finalizado para ${dados.nome_tutor} (${dados.nome_pet}) - SEM PERSISTÊNCIA`);
 
-      // 2. Cria pet
-      if (dados.nome_pet) {
-        this.createPet(tutorId, dados);
-      }
-
-      // 3. Marca onboarding como completo
-      db.prepare(`
-        UPDATE onboarding_progress
-        SET
-          stage_atual = ?,
-          progresso_percentual = 100,
-          completo = TRUE,
-          completado_em = CURRENT_TIMESTAMP
-        WHERE chat_id = ?
-      `).run(OnboardingStage.COMPLETO, chatId);
-
-      console.log(`✅ Onboarding finalizado para ${dados.nome_tutor} (${dados.nome_pet})`);
-    } catch (error) {
-      console.error('Erro ao finalizar onboarding:', error);
-    }
+    // Criação de tutor e pet será implementada depois
+    // this.createOrUpdateTutor(chatId, dados);
+    // this.createPet(tutorId, dados);
   }
 
   /**
    * Cria ou atualiza tutor
    */
   private createOrUpdateTutor(chatId: string, dados: any): string {
-    const db = this.getDB();
-
-    try {
-      // Verifica se já existe
-      const existing = db.prepare(`
-        SELECT tutor_id FROM tutors WHERE chat_id = ?
-      `).get(chatId) as any;
-
-      if (existing) {
-        // Atualiza
-        db.prepare(`
-          UPDATE tutors
-          SET nome = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE tutor_id = ?
-        `).run(dados.nome_tutor, existing.tutor_id);
-
-        return existing.tutor_id;
-      } else {
-        // Cria novo
-        const tutorId = this.generateId();
-        db.prepare(`
-          INSERT INTO tutors (tutor_id, chat_id, nome)
-          VALUES (?, ?, ?)
-        `).run(tutorId, chatId, dados.nome_tutor);
-
-        return tutorId;
-      }
-    } catch (error) {
-      console.warn('Tabela tutors não existe - pulando criação');
-      return 'temp_' + chatId;
-    }
+    // TODO: Implementar createOrUpdateTutor no CustomerMemoryDB
+    console.warn('createOrUpdateTutor - método temporário sem persistência');
+    return 'temp_' + chatId;
   }
 
   /**
    * Cria pet
    */
   private createPet(tutorId: string, dados: any): void {
-    const db = this.getDB();
-
-    try {
-      const petId = this.generateId();
-
-      db.prepare(`
-        INSERT INTO pets (
-          pet_id,
-          tutor_id,
-          nome,
-          especie,
-          raca,
-          porte,
-          temperamento
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        petId,
-        tutorId,
-        dados.nome_pet,
-        dados.tipo_pet || 'cachorro',
-        dados.raca || null,
-        dados.porte || null,
-        dados.temperamento || null
-      );
-
-      console.log(`🐾 Pet ${dados.nome_pet} criado`);
-    } catch (error) {
-      console.warn('Tabela pets não existe - pulando criação');
-    }
+    // TODO: Implementar createPet no CustomerMemoryDB
+    console.warn('createPet - método temporário sem persistência');
+    console.log(`🐾 Pet ${dados.nome_pet} (sem persistência)`);
   }
 
   /**
    * Salva progresso
    */
   private saveProgress(progress: OnboardingProgress): void {
-    const db = this.getDB();
-
-    try {
-      db.prepare(`
-        UPDATE onboarding_progress
-        SET
-          stage_atual = ?,
-          campos_coletados = ?,
-          campos_pendentes = ?,
-          progresso_percentual = ?,
-          dados_temporarios = ?,
-          ultima_interacao = CURRENT_TIMESTAMP,
-          num_interacoes = num_interacoes + 1
-        WHERE chat_id = ?
-      `).run(
-        progress.stageAtual,
-        JSON.stringify(progress.camposColetados),
-        JSON.stringify(progress.camposPendentes),
-        progress.progressoPercentual,
-        JSON.stringify(progress.dadosTemporarios),
-        progress.chatId
-      );
-    } catch (error) {
-      console.warn('Não foi possível salvar progresso');
-    }
+    // TODO: Implementar saveOnboardingProgress no CustomerMemoryDB
+    console.warn('saveProgress - método temporário sem persistência');
   }
 
   /**
    * Pula onboarding (cliente já conhece o sistema)
    */
   public skipOnboarding(chatId: string): void {
-    const db = this.getDB();
-
-    try {
-      db.prepare(`
-        UPDATE onboarding_progress
-        SET
-          stage_atual = ?,
-          completo = TRUE,
-          completado_em = CURRENT_TIMESTAMP,
-          progresso_percentual = 100
-        WHERE chat_id = ?
-      `).run(OnboardingStage.COMPLETO, chatId);
-    } catch (error) {
-      console.warn('Não foi possível pular onboarding');
-    }
+    // TODO: Implementar skipOnboarding no CustomerMemoryDB
+    console.warn('skipOnboarding - método temporário sem persistência');
   }
 
   /**
@@ -556,66 +393,63 @@ export class OnboardingManager {
    * Evita perguntar novamente o que já foi coletado
    */
   public syncWithProfile(chatId: string, profile: any): void {
-    const db = this.getDB();
+    // TODO: Implementar syncWithProfile usando CustomerMemoryDB
+    console.warn('syncWithProfile - método temporário sem persistência');
 
-    try {
-      const progress = this.getProgress(chatId);
+    const progress = this.getProgress(chatId);
 
-      // Atualiza dados temporários com informações do profile
-      let updated = false;
+    // Atualiza dados temporários com informações do profile
+    let updated = false;
 
-      if (profile.nome && !progress.dadosTemporarios.nome_tutor) {
-        progress.dadosTemporarios.nome_tutor = profile.nome;
-        progress.camposColetados.push('nome_tutor');
-        updated = true;
-        console.log(`🔄 Sincronizando nome do tutor: ${profile.nome}`);
-      }
+    if (profile.nome && !progress.dadosTemporarios.nome_tutor) {
+      progress.dadosTemporarios.nome_tutor = profile.nome;
+      progress.camposColetados.push('nome_tutor');
+      updated = true;
+      console.log(`🔄 Sincronizando nome do tutor: ${profile.nome}`);
+    }
 
-      if (profile.petNome && !progress.dadosTemporarios.nome_pet) {
-        progress.dadosTemporarios.nome_pet = profile.petNome;
-        progress.camposColetados.push('nome_pet');
-        updated = true;
-        console.log(`🔄 Sincronizando nome do pet: ${profile.petNome}`);
-      }
+    if (profile.petNome && !progress.dadosTemporarios.nome_pet) {
+      progress.dadosTemporarios.nome_pet = profile.petNome;
+      progress.camposColetados.push('nome_pet');
+      updated = true;
+      console.log(`🔄 Sincronizando nome do pet: ${profile.petNome}`);
+    }
 
-      if (profile.petTipo && !progress.dadosTemporarios.tipo_pet) {
-        progress.dadosTemporarios.tipo_pet = profile.petTipo;
-        progress.camposColetados.push('tipo_pet');
-        updated = true;
-        console.log(`🔄 Sincronizando tipo do pet: ${profile.petTipo}`);
-      }
+    if (profile.petTipo && !progress.dadosTemporarios.tipo_pet) {
+      progress.dadosTemporarios.tipo_pet = profile.petTipo;
+      progress.camposColetados.push('tipo_pet');
+      updated = true;
+      console.log(`🔄 Sincronizando tipo do pet: ${profile.petTipo}`);
+    }
 
-      if (profile.petRaca && !progress.dadosTemporarios.raca) {
-        progress.dadosTemporarios.raca = profile.petRaca;
-        progress.camposColetados.push('raca');
-        updated = true;
-        console.log(`🔄 Sincronizando raça do pet: ${profile.petRaca}`);
-      }
+    if (profile.petRaca && !progress.dadosTemporarios.raca) {
+      progress.dadosTemporarios.raca = profile.petRaca;
+      progress.camposColetados.push('raca');
+      updated = true;
+      console.log(`🔄 Sincronizando raça do pet: ${profile.petRaca}`);
+    }
 
-      if (profile.petPorte && !progress.dadosTemporarios.porte) {
-        progress.dadosTemporarios.porte = profile.petPorte;
-        progress.camposColetados.push('porte');
-        updated = true;
-        console.log(`🔄 Sincronizando porte do pet: ${profile.petPorte}`);
-      }
+    if (profile.petPorte && !progress.dadosTemporarios.porte) {
+      progress.dadosTemporarios.porte = profile.petPorte;
+      progress.camposColetados.push('porte');
+      updated = true;
+      console.log(`🔄 Sincronizando porte do pet: ${profile.petPorte}`);
+    }
 
-      // Salva progresso se houve atualização
-      if (updated) {
-        // Remove duplicatas
-        progress.camposColetados = [...new Set(progress.camposColetados)];
-        progress.camposPendentes = progress.camposPendentes.filter(
-          campo => !progress.camposColetados.includes(campo)
-        );
+    // Salva progresso se houve atualização
+    if (updated) {
+      // Remove duplicatas
+      progress.camposColetados = [...new Set(progress.camposColetados)];
+      progress.camposPendentes = progress.camposPendentes.filter(
+        campo => !progress.camposColetados.includes(campo)
+      );
 
-        // Recalcula progresso
-        const totalCampos = this.REQUIRED_FIELDS.length + this.OPTIONAL_FIELDS.length;
-        progress.progressoPercentual = Math.round((progress.camposColetados.length / totalCampos) * 100);
+      // Recalcula progresso
+      const totalCampos = this.REQUIRED_FIELDS.length + this.OPTIONAL_FIELDS.length;
+      progress.progressoPercentual = Math.round((progress.camposColetados.length / totalCampos) * 100);
 
-        this.saveProgress(progress);
-        console.log(`✅ Onboarding sincronizado: ${progress.progressoPercentual}% completo`);
-      }
-    } catch (error) {
-      console.warn('⚠️ Erro ao sincronizar onboarding com profile:', error);
+      this.saveProgress(progress);
+      console.log(`✅ Onboarding sincronizado: ${progress.progressoPercentual}% completo (SEM PERSISTÊNCIA)`);
     }
   }
 
@@ -624,12 +458,5 @@ export class OnboardingManager {
    */
   private generateId(): string {
     return 'id_' + Math.random().toString(36).substring(2, 15);
-  }
-
-  /**
-   * Helper: acessa DB
-   */
-  private getDB(): Database.Database {
-    return (this.memoryDB as any).db;
   }
 }

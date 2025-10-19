@@ -7,7 +7,7 @@ dotenv.config();
  * 🐘 POSTGRESQL CLIENT (Direct Connection)
  *
  * Gerencia conexão direta com PostgreSQL usando DATABASE_URL
- * Prioridade: DATABASE_URL > SQLite
+ * DATABASE_URL é OBRIGATÓRIO
  */
 export class PostgreSQLClient {
   private static instance: PostgreSQLClient;
@@ -35,9 +35,7 @@ export class PostgreSQLClient {
     const databaseUrl = process.env.DATABASE_URL;
 
     if (!databaseUrl) {
-      console.log('ℹ️  DATABASE_URL não configurado - usando SQLite');
-      this.isConnected = false;
-      return;
+      throw new Error('❌ DATABASE_URL é OBRIGATÓRIO! Configure a variável de ambiente.');
     }
 
     try {
