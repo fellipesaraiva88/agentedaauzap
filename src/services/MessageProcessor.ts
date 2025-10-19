@@ -777,7 +777,8 @@ export class MessageProcessor {
       }
 
       // 1️⃣3️⃣ ANÁLISE DE CITAÇÃO CONTEXTUAL
-      const conversationHistory = await this.memoryDB.getRecentMessagesWithIds(chatId, 10);
+      // 🧠 MEMÓRIA EXPANDIDA: Busca últimas 50 mensagens para citações contextuais
+      const conversationHistory = await this.memoryDB.getRecentMessagesWithIds(chatId, 50);
       let quoteDecision = this.quoteAnalyzer.analyze(body, conversationHistory, extractedInfo);
       quoteDecision = this.quoteAnalyzer.shouldApplyRandomly(quoteDecision); // 70% chance
 

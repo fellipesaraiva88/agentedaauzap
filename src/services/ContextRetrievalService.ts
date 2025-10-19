@@ -260,7 +260,7 @@ export class ContextRetrievalService {
         FROM service_history
         WHERE tutor_id = ?
         ORDER BY data_servico DESC
-        LIMIT 10
+        LIMIT 50
       `).all(tutorId) as any[];
 
       return results.map(r => ({

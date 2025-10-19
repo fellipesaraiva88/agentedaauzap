@@ -295,7 +295,7 @@ export class CustomerMemoryDB {
       VALUES (?, ?)
     `).run(chatId, responseTime);
 
-    // Mantém apenas últimas 10 respostas
+    // 🧠 MEMÓRIA EXPANDIDA: Mantém últimas 50 respostas (conexão eterna)
     this.db.prepare(`
       DELETE FROM response_times
       WHERE chat_id = ?
@@ -303,7 +303,7 @@ export class CustomerMemoryDB {
         SELECT id FROM response_times
         WHERE chat_id = ?
         ORDER BY timestamp DESC
-        LIMIT 10
+        LIMIT 50
       )
     `).run(chatId, chatId);
   }
@@ -339,7 +339,7 @@ export class CustomerMemoryDB {
       FROM response_times
       WHERE chat_id = ?
       ORDER BY timestamp DESC
-      LIMIT 10
+      LIMIT 50
     `).all(chatId) as { response_time: number }[];
 
     return rows.map(r => r.response_time);

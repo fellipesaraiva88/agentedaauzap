@@ -617,14 +617,14 @@ Venda FELICIDADE pra família`;
   private getOrCreateMemory(chatId: string): BufferWindowMemory {
     if (!this.langchainMemories.has(chatId)) {
       const memory = new BufferWindowMemory({
-        k: 10, // Mantém últimas 10 mensagens
+        k: 100, // 🧠 MEMÓRIA EXPANDIDA: Mantém últimas 100 mensagens (conexão eterna)
         returnMessages: true,
         memoryKey: 'chat_history',
         inputKey: 'user_message', // CRÍTICO: define qual variável é o input
         outputKey: 'response', // CRÍTICO: define qual variável é o output
       });
       this.langchainMemories.set(chatId, memory);
-      console.log(`💾 Nova memória LangChain criada para ${chatId} (inputKey: user_message, outputKey: response)`);
+      console.log(`💾 Nova memória LangChain criada para ${chatId} (k=100 msgs - inputKey: user_message, outputKey: response)`);
     }
     return this.langchainMemories.get(chatId)!;
   }
