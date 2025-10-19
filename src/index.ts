@@ -13,6 +13,8 @@ import { ContextRetrievalService } from './services/ContextRetrievalService';
 import { OnboardingManager } from './services/OnboardingManager';
 import { IntentAnalyzer } from './services/IntentAnalyzer';
 import { InstantAcknowledgment } from './services/InstantAcknowledgment';
+import { PostgreSQLClient, postgresClient } from './services/PostgreSQLClient';
+import { RedisClient, redisClient } from './services/RedisClient';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -85,6 +87,34 @@ const contextRetrieval = new ContextRetrievalService(memoryDB);
 const onboardingManager = new OnboardingManager(memoryDB);
 const intentAnalyzer = new IntentAnalyzer();
 console.log('✅ Serviços de contexto inicializados!\n');
+
+// 🐘 TESTA CONEXÃO POSTGRESQL (se configurado)
+if (postgresClient.isPostgresConnected()) {
+  console.log('🐘 Testando conexão PostgreSQL...');
+  postgresClient.testConnection().then(success => {
+    if (success) {
+      console.log('✅ PostgreSQL: Conexão verificada e funcionando!\n');
+    } else {
+      console.error('❌ PostgreSQL: Teste falhou - verifique configuração\n');
+    }
+  }).catch(err => {
+    console.error('❌ PostgreSQL: Erro ao testar:', err.message, '\n');
+  });
+}
+
+// 🔴 TESTA CONEXÃO REDIS (se configurado)
+if (redisClient.isRedisConnected()) {
+  console.log('🔴 Testando conexão Redis...');
+  redisClient.testConnection().then(success => {
+    if (success) {
+      console.log('✅ Redis: Conexão verificada e funcionando!\n');
+    } else {
+      console.error('❌ Redis: Teste falhou - verifique configuração\n');
+    }
+  }).catch(err => {
+    console.error('❌ Redis: Erro ao testar:', err.message, '\n');
+  });
+}
 
 // ⚡ NOVO: Resposta instantânea (<1s)
 console.log('⚡ Inicializando resposta instantânea...');
