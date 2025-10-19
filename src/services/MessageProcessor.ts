@@ -248,6 +248,25 @@ export class MessageProcessor {
       console.log(`📨 Mensagem: "${body}"`);
       console.log('🧠 ========================================\n');
 
+      // 🚦 RATE LIMITING - Protege contra spam (20 msgs/minuto)
+      const allowed = await (await import('./RedisClient')).redisClient.checkRateLimit(
+        `chat:${chatId}`,
+        20,  // máximo 20 mensagens
+        60   // por minuto
+      );
+
+      if (!allowed) {
+        console.log(`⚠️ RATE LIMIT excedido: ${chatId} (>20 msgs/min)`);
+        await this.wahaService.sendMessage(
+          chatId,
+          'opa! calma ai 😅\n' +
+          'muitas mensagens em sequência\n' +
+          'aguarda 1 minutinho pra eu processar tudo direitinho'
+        );
+        this.processingMessages.delete(messageId);
+        return;
+      }
+
       // 🔥 CLIENTE RESPONDEU - Cancela follow-ups se houver
       // 🧠 NOVO: Passa mensagem para detectar irritação
       this.immediateFollowUpManager.onClientMessage(chatId, body);
