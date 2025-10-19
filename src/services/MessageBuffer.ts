@@ -144,7 +144,12 @@ export class MessageBuffer {
       const lastMessage = buffer.messages[buffer.messages.length - 1].message;
 
       // Chama callback com corpo concatenado
-      await processCallback(concatenatedBody, lastMessage);
+      try {
+        await processCallback(concatenatedBody, lastMessage);
+      } catch (error) {
+        console.error('❌ ERRO NO CALLBACK (concatenado):', error);
+        throw error;
+      }
     } else {
       // NÃO concatena - processa só a última
       if (buffer.messages.length === 1) {
@@ -155,7 +160,12 @@ export class MessageBuffer {
       }
       const lastMsg = buffer.messages[buffer.messages.length - 1];
       console.log(`📤 Processando: "${lastMsg.body}"\n`);
-      await processCallback(lastMsg.body, lastMsg.message);
+      try {
+        await processCallback(lastMsg.body, lastMsg.message);
+      } catch (error) {
+        console.error('❌ ERRO NO CALLBACK (single):', error);
+        throw error;
+      }
     }
 
     // Limpa buffer
