@@ -12,6 +12,7 @@ import { ContextRetrievalService } from './services/ContextRetrievalService';
 import { OnboardingManager } from './services/OnboardingManager';
 import { IntentAnalyzer } from './services/IntentAnalyzer';
 import { InstantAcknowledgment } from './services/InstantAcknowledgment';
+import { ConversationStateManager } from './services/ConversationStateManager';
 import { PostgreSQLClient, postgresClient } from './services/PostgreSQLClient';
 import { RedisClient, redisClient } from './services/RedisClient';
 
@@ -107,9 +108,14 @@ if (redisClient.isRedisConnected()) {
   });
 }
 
+// 💬 NOVO: Gerenciador de estado de conversas (evita InstantAck duplicado)
+console.log('💬 Inicializando gerenciador de estado de conversas...');
+const conversationState = new ConversationStateManager();
+console.log('✅ Gerenciador de estado configurado!\n');
+
 // ⚡ NOVO: Resposta instantânea (<1s)
 console.log('⚡ Inicializando resposta instantânea...');
-const instantAck = new InstantAcknowledgment(wahaService);
+const instantAck = new InstantAcknowledgment(wahaService, conversationState);
 console.log('✅ Resposta instantânea configurada!\n');
 
 const messageProcessor = new MessageProcessor(
@@ -119,6 +125,7 @@ const messageProcessor = new MessageProcessor(
   memoryDB,
   audioService,
   OPENAI_API_KEY,
+  conversationState,  // 💬 Gerenciador de estado (NOVO)
   pixDiscountManager, // Pode ser undefined se não configurado
   contextRetrieval,   // 🆕 Novo
   onboardingManager,  // 🆕 Novo

@@ -1,5 +1,6 @@
 import { WahaService } from './WahaService';
 import { UserProfile } from './CustomerMemoryDB';
+import { ConversationStateManager } from './ConversationStateManager';
 
 /**
  * RESPOSTA INSTANTÂNEA (<1s)
@@ -10,8 +11,13 @@ import { UserProfile } from './CustomerMemoryDB';
  * - Cliente sabe que foi visto IMEDIATAMENTE
  * - Tempo percebido cai de 10s para 2s
  * - Taxa de abandono cai 40-60%
+ *
+ * IMPORTANTE:
+ * - Só envia InstantAck em NOVAS conversas ou conversas expiradas (>5min sem resposta)
+ * - NÃO envia durante conversa ativa (evita mensagens irritantes de "perai...")
  */
 export class InstantAcknowledgment {
+  private conversationState: ConversationStateManager;
   private responses = {
     // Cliente NOVO (primeira vez)
     new_client: [
@@ -46,8 +52,12 @@ export class InstantAcknowledgment {
     ],
   };
 
-  constructor(private wahaService: WahaService) {
-    console.log('⚡ InstantAcknowledgment inicializado');
+  constructor(
+    private wahaService: WahaService,
+    conversationState: ConversationStateManager
+  ) {
+    this.conversationState = conversationState;
+    console.log('⚡ InstantAcknowledgment inicializado (com ConversationState)');
   }
 
   /**
@@ -139,7 +149,7 @@ export class InstantAcknowledgment {
 
   /**
    * Verifica se deve enviar resposta instantânea
-   * (não envia para áudios, fotos, etc - só texto)
+   * (não envia para áudios, fotos, conversas ativas, etc - só texto em novas conversas)
    */
   public shouldSendInstantReply(message: any): boolean {
     // Não envia para mensagens próprias
@@ -159,6 +169,16 @@ export class InstantAcknowledgment {
 
     // Só envia para mensagens de texto
     if (!message.body || message.body.trim() === '') return false;
+
+    // ⚠️ NOVO: Não envia se já está em conversa ativa
+    const chatId = message.from;
+    const isActive = this.conversationState.isActive(chatId);
+
+    if (isActive) {
+      const timeSinceLastResponse = this.conversationState.getTimeSinceLastResponse(chatId);
+      console.log(`⏭️ InstantAck PULADO: conversa ativa há ${Math.floor((timeSinceLastResponse || 0) / 1000)}s`);
+      return false;
+    }
 
     return true;
   }

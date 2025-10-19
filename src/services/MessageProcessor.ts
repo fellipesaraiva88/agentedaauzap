@@ -28,6 +28,7 @@ import { IntentAnalyzer, CustomerIntent } from './IntentAnalyzer';
 import { PETSHOP_CONFIG, getServicosDescricao, getHorarioDescricao } from '../config/petshop.config';
 import { PersonalizedGreeting } from './PersonalizedGreeting';
 import { ProofSocialEngine } from './ProofSocialEngine';
+import { ConversationStateManager } from './ConversationStateManager';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -81,6 +82,9 @@ export class MessageProcessor {
   private personalizedGreeting: PersonalizedGreeting;
   private proofSocialEngine: ProofSocialEngine;
 
+  // 💬 Gerenciador de estado de conversas (evita InstantAck duplicado)
+  private conversationState: ConversationStateManager;
+
   constructor(
     private wahaService: WahaService,
     private openaiService: OpenAIService,
@@ -88,11 +92,13 @@ export class MessageProcessor {
     private memoryDB: CustomerMemoryDB,
     private audioTranscription: AudioTranscriptionService,
     private openaiApiKey: string,
+    conversationState: ConversationStateManager,
     pixDiscountManager?: PixDiscountManager,
     contextRetrieval?: ContextRetrievalService,
     onboardingManager?: OnboardingManager,
     intentAnalyzer?: IntentAnalyzer
   ) {
+    this.conversationState = conversationState;
     this.processingMessages = new Set();
     this.lastMessageTimestamps = new Map();
 
@@ -836,6 +842,9 @@ export class MessageProcessor {
             await this.wahaService.sendHumanizedMessage(chatId, part, typingTime);
           }
         }
+
+        // 💬 MARCA CONVERSA COMO ATIVA após enviar todas as partes
+        this.conversationState.markActive(chatId);
       } else {
         // 1️⃣5️⃣ CALCULA DELAYS HUMANIZADOS ADAPTATIVOS
         const readingTime = this.humanDelay.calculateReadingTime(body);
@@ -859,6 +868,9 @@ export class MessageProcessor {
           await this.wahaService.sendHumanizedMessage(chatId, finalResponse, typingTime);
         }
       }
+
+      // 💬 MARCA CONVERSA COMO ATIVA (evita InstantAck nas próximas mensagens)
+      this.conversationState.markActive(chatId);
 
       // 1️⃣8️⃣ SALVA RESPOSTA NO HISTÓRICO
       await this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
