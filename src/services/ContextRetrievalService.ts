@@ -95,9 +95,8 @@ export class ContextRetrievalService {
   public async getFullContext(chatId: string): Promise<ContextSnapshot> {
     const db = this.getDB();
 
-    // Se SQLite não disponível (usando Supabase), usa dados do user_profiles
     if (!db) {
-      return this.getFullContextFromSupabase(chatId);
+      throw new Error('Database não está disponível');
     }
 
     // 1. DADOS DO TUTOR
@@ -539,66 +538,6 @@ export class ContextRetrievalService {
     prompt += '═══════════════════════════════════════════════════════════════\n\n';
 
     return prompt;
-  }
-
-  /**
-   * Contexto a partir do Supabase (user_profiles)
-   * TODO: Implementar versão completa com todas as tabelas do Supabase
-   */
-  private async getFullContextFromSupabase(chatId: string): Promise<ContextSnapshot> {
-    const profile = await this.memoryDB.getOrCreateProfile(chatId);
-
-    // Cria contexto básico a partir do user_profiles
-    const tutor = profile.nome ? {
-      tutorId: chatId,
-      nome: profile.nome,
-      estiloComum: 'casual',
-      arquetipoFrequente: 'desconhecido',
-      horarioPreferido: undefined,
-      metodoPagamentoPreferido: undefined
-    } : null;
-
-    const pets: ContextSnapshot['pets'] = [];
-    if (profile.petNome) {
-      pets.push({
-        petId: chatId + '_pet1',
-        nome: profile.petNome,
-        especie: profile.petTipo || 'desconhecido',
-        raca: profile.petRaca || undefined,
-        idade: undefined,
-        porte: profile.petPorte || undefined,
-        temperamento: undefined,
-        ultimoServico: undefined,
-        proximaVacina: undefined
-      });
-    }
-
-    const isNovo = !profile.nome && profile.totalMessages === 0;
-    const isVip = !!(profile.purchaseHistory && profile.purchaseHistory.length >= 5);
-    const isInativo = !!(profile.lastMessageTimestamp &&
-                      (Date.now() - profile.lastMessageTimestamp) > (90 * 24 * 60 * 60 * 1000)); // 90 days
-
-    return {
-      tutor,
-      pets,
-      ultimasEmocoes: [],
-      servicosAnteriores: [],
-      preferencias: {},
-      ultimaConversa: undefined,
-      stats: {
-        totalServicos: profile.purchaseHistory?.length || 0,
-        valorTotalGasto: 0,
-        conversoes: 0,
-        taxaConversao: 0
-      },
-      flags: {
-        clienteNovo: isNovo,
-        clienteVip: isVip,
-        clienteInativo: isInativo,
-        onboardingCompleto: !!(profile.nome && profile.petNome),
-        temProximaAcao: false
-      }
-    };
   }
 
   /**

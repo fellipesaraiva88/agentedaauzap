@@ -1,526 +1,424 @@
-# 🏗️ Arquitetura do Sistema
+# Arquitetura do Sistema
 
-## 📁 Estrutura de Arquivos
+## Visão Geral
 
+Sistema de automação de atendimento via WhatsApp com IA, construído para alta performance e escalabilidade.
+
+---
+
+## Stack de Dados
+
+### PostgreSQL (Database Principal - Production)
+- **Propósito**: Armazenamento persistente de dados relacionais
+- **Conexão**: `DATABASE_URL`
+- **Host**: `31.97.255.95:3004`
+- **Tabelas**: 16 tabelas principais
+  - `user_profiles` - Perfis de usuários
+  - `tutors` - Dados dos tutores
+  - `pets` - Informações dos pets
+  - `appointments` - Agendamentos
+  - `appointment_reminders` - Lembretes de consultas
+  - `services` - Serviços oferecidos
+  - `products` - Catálogo de produtos
+  - `orders` - Pedidos
+  - `order_items` - Itens dos pedidos
+  - `payments` - Pagamentos
+  - `conversations` - Conversas
+  - `messages` - Mensagens
+  - `context_data` - Contexto das conversas
+  - `ai_memory` - Memória da IA
+  - `campaigns` - Campanhas de marketing
+  - `campaign_recipients` - Destinatários das campanhas
+
+### Redis (Cache e Sessions)
+- **Propósito**: Cache de alta performance e gerenciamento de sessões
+- **Conexão**: `REDIS_URL`
+- **Host**: `31.97.255.95:3005`
+- **Dados em Cache**:
+  - Perfis de usuários
+  - Mensagens recentes
+  - Contexto de conversas
+  - Dados de sessão
+  - Resultados de queries frequentes
+
+### SQLite (Fallback - Development)
+- **Propósito**: Desenvolvimento local e fallback
+- **Usado quando**: PostgreSQL não está disponível
+- **Path**: `./data/customers.db`
+- **Nota**: Apenas para ambiente de desenvolvimento
+
+---
+
+## Fluxo de Dados
+
+### Leitura (Read Flow)
 ```
-agentedaauzap/
-├── src/
-│   ├── index.ts                    # Servidor Express + inicialização
-│   └── services/
-│       ├── HumanDelay.ts           # Calcula delays humanizados
-│       ├── WahaService.ts          # Integração com WAHA API
-│       ├── OpenAIService.ts        # Integração com OpenAI
-│       └── MessageProcessor.ts     # Orquestra todo o fluxo
-│
-├── scripts/
-│   ├── configure-webhook.sh        # Script para configurar webhook
-│   └── check-waha-status.sh        # Script para verificar WAHA
-│
-├── .env                            # Credenciais (NÃO versionar!)
-├── .env.example                    # Template de configuração
-├── .gitignore                      # Arquivos ignorados pelo git
-├── package.json                    # Dependências do projeto
-├── tsconfig.json                   # Configuração TypeScript
-│
-├── README.md                       # Documentação principal
-├── QUICK_START.md                  # Guia de início rápido
-├── EXAMPLES.md                     # Exemplos de conversação
-├── SECURITY.md                     # Guia de segurança
-└── ARCHITECTURE.md                 # Este arquivo
+1. REQUEST → Aplicação
+2. CHECK → Redis (cache lookup)
+3a. CACHE HIT → Return from Redis (rápido)
+3b. CACHE MISS → Query PostgreSQL
+4. CACHE MISS → Store in Redis (TTL configurável)
+5. RESPONSE → Cliente
+```
+
+### Escrita (Write Flow)
+```
+1. REQUEST → Aplicação
+2. VALIDATE → Validação de dados
+3. WRITE → PostgreSQL (transaction)
+4. INVALIDATE → Redis cache (chaves relacionadas)
+5. RESPONSE → Cliente
+```
+
+### Performance Gains
+- **Cache Hit**: ~1-5ms (Redis)
+- **Cache Miss**: ~50-200ms (PostgreSQL + Redis store)
+- **Improvement**: 10-100x mais rápido em operações repetidas
+
+---
+
+## Prioridade de Conexão
+
+### Database Connection Priority
+```
+1. DATABASE_URL (PostgreSQL) - PRODUCTION
+   ↓ (se falhar)
+2. SQLite (./data/customers.db) - FALLBACK
+```
+
+### Cache Connection Priority
+```
+1. REDIS_URL (Redis) - PRODUCTION
+   ↓ (se falhar)
+2. Memory Cache - FALLBACK (limitado)
 ```
 
 ---
 
-## 🔄 Fluxo de Dados
+## Arquitetura de Serviços
+
+### Service Boundaries
 
 ```
-┌─────────────┐
-│  WhatsApp   │
-│   Cliente   │
-└──────┬──────┘
-       │ 1. Envia mensagem
-       ▼
-┌─────────────────┐
-│   WAHA API      │
-│  (WhatsApp      │
-│   HTTP API)     │
-└──────┬──────────┘
-       │ 2. Webhook HTTP POST
-       ▼
-┌──────────────────────────────────────────┐
-│         Servidor Express (index.ts)      │
-│                                          │
-│  ┌────────────────────────────────────┐ │
-│  │  POST /webhook                     │ │
-│  │  - Recebe evento                   │ │
-│  │  - Responde 200 OK (imediato)      │ │
-│  │  - Processa assincronamente        │ │
-│  └────────────────────────────────────┘ │
-└──────┬───────────────────────────────────┘
-       │ 3. Chama processMessage()
-       ▼
-┌──────────────────────────────────────────┐
-│     MessageProcessor                      │
-│                                          │
-│  1. Valida mensagem                      │
-│  2. Marca como lida (WAHA)               │
-│  3. Delay de leitura (HumanDelay)        │
-│  4. Gera resposta (OpenAI)               │
-│  5. Delay de digitação (HumanDelay)      │
-│  6. Envia resposta (WAHA)                │
-└──────┬───────────────────────────────────┘
-       │
-       ├─────────────┬─────────────┬──────────────┐
-       ▼             ▼             ▼              ▼
-┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-│  Human   │  │   WAHA   │  │  OpenAI  │  │  WAHA    │
-│  Delay   │  │ Service  │  │ Service  │  │ Service  │
-└──────────┘  └──────────┘  └──────────┘  └──────────┘
-       │             │             │              │
-       │             ▼             ▼              │
-       │      ┌─────────┐   ┌─────────┐         │
-       │      │Mark Read│   │Generate │         │
-       │      └─────────┘   │Response │         │
-       │                    └─────────┘         │
-       ▼                                        ▼
-┌─────────────┐                         ┌─────────────┐
-│Wait/Calculate│                        │Send Message │
-│   Delays     │                        │+ Typing     │
-└──────────────┘                        └──────┬──────┘
-                                              │
-                                              ▼
-                                        ┌─────────────┐
-                                        │  WAHA API   │
-                                        └──────┬──────┘
-                                              │
-                                              ▼
-                                        ┌─────────────┐
-                                        │  WhatsApp   │
-                                        │   Cliente   │
-                                        └─────────────┘
+┌─────────────────────────────────────────────────────┐
+│                   API Gateway                        │
+│              (Express.js Server)                     │
+└──────────────────┬──────────────────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+┌───────▼────────┐   ┌────────▼──────┐
+│  WhatsApp API  │   │  Admin API    │
+│   (Baileys)    │   │  (REST)       │
+└───────┬────────┘   └────────┬──────┘
+        │                     │
+        └──────────┬──────────┘
+                   │
+        ┌──────────▼──────────┐
+        │   Business Logic    │
+        │   (Services Layer)  │
+        └──────────┬──────────┘
+                   │
+        ┌──────────┴──────────┐
+        │                     │
+┌───────▼────────┐   ┌────────▼──────┐
+│  Cache Layer   │   │  Data Layer   │
+│    (Redis)     │   │ (PostgreSQL)  │
+└────────────────┘   └───────────────┘
 ```
+
+### Service Components
+
+#### 1. WhatsApp Service
+- **Responsabilidade**: Gerenciar conexão e mensagens WhatsApp
+- **Tecnologia**: Baileys (WhatsApp Web API)
+- **Endpoints**: Internos (event-driven)
+
+#### 2. AI Service
+- **Responsabilidade**: Processamento de linguagem natural
+- **Tecnologia**: OpenAI API / LLM
+- **Endpoints**: `/api/ai/*`
+
+#### 3. Customer Service
+- **Responsabilidade**: Gerenciar dados de clientes/tutores
+- **Endpoints**: `/api/customers/*`, `/api/tutors/*`
+
+#### 4. Appointment Service
+- **Responsabilidade**: Agendamentos e lembretes
+- **Endpoints**: `/api/appointments/*`
+
+#### 5. Order Service
+- **Responsabilidade**: Pedidos e pagamentos
+- **Endpoints**: `/api/orders/*`, `/api/payments/*`
+
+#### 6. Campaign Service
+- **Responsabilidade**: Campanhas de marketing
+- **Endpoints**: `/api/campaigns/*`
 
 ---
 
-## 🧩 Componentes Principais
+## Database Schema (Simplified)
 
-### 1. **index.ts** - Servidor Principal
+### Core Relationships
 
-**Responsabilidades:**
-- Inicializa servidor Express
-- Define rotas (webhook, health, stats)
-- Gerencia lifecycle da aplicação
-- Coordena serviços
+```
+user_profiles
+    ├─→ tutors (1:1)
+    │     └─→ pets (1:N)
+    │           └─→ appointments (1:N)
+    │
+    ├─→ conversations (1:N)
+    │     ├─→ messages (1:N)
+    │     └─→ context_data (1:1)
+    │
+    └─→ orders (1:N)
+          └─→ order_items (1:N)
+                └─→ products (N:1)
+```
 
-**Endpoints:**
-| Rota | Método | Descrição |
-|------|--------|-----------|
-| `/` | GET | Info do servidor |
-| `/health` | GET | Status e métricas |
-| `/stats` | GET | Estatísticas detalhadas |
-| `/webhook` | POST | Recebe mensagens do WAHA |
+### Key Indexes
+- `user_profiles.phone_number` (UNIQUE)
+- `conversations.user_id, created_at`
+- `messages.conversation_id, timestamp`
+- `appointments.tutor_id, appointment_date`
+- `orders.user_id, created_at`
 
 ---
 
-### 2. **WahaService** - Integração WhatsApp
+## Caching Strategy
 
-**Responsabilidades:**
-- Comunicação com WAHA API
-- Envio de mensagens
-- Controle de "digitando..."
-- Marcar mensagens como lidas
-- Gestão de webhooks
-
-**Métodos Principais:**
+### Cache Keys Pattern
 ```typescript
-sendMessage(chatId, text)           // Envia mensagem
-startTyping(chatId)                 // Mostra "digitando..."
-stopTyping(chatId)                  // Para indicador
-sendHumanizedMessage(...)           // Envia com delay
-markAsRead(chatId)                  // Marca como lida
+// User profile
+`user:${userId}:profile`
+
+// Conversation context
+`conversation:${conversationId}:context`
+
+// Recent messages
+`conversation:${conversationId}:messages:recent`
+
+// Appointments by tutor
+`tutor:${tutorId}:appointments:${date}`
 ```
 
-**Fluxo de Envio Humanizado:**
+### TTL (Time To Live)
+- **User Profiles**: 1 hour
+- **Conversation Context**: 30 minutes
+- **Messages**: 15 minutes
+- **Appointments**: 5 minutes (frequent updates)
+
+### Cache Invalidation
+- **On Update**: Invalidate specific keys
+- **On Delete**: Invalidate related keys
+- **On Create**: Pre-populate cache (write-through)
+
+---
+
+## Security Patterns
+
+### Authentication
+- **API Keys**: Para integração externa
+- **Session Management**: Redis-based sessions
+- **Rate Limiting**: Por IP e por usuário
+
+### Data Protection
+- **Environment Variables**: Secrets em `.env`
+- **Database**: Conexões SSL/TLS
+- **API**: HTTPS only em production
+
+---
+
+## Scaling Considerations
+
+### Horizontal Scaling
+- **Stateless API**: Permite múltiplas instâncias
+- **Shared Redis**: Cache centralizado
+- **Database Connection Pool**: Gerenciado por instância
+
+### Performance Optimization
+- **Database Indexes**: Em campos de busca frequente
+- **Query Optimization**: Evitar N+1 queries
+- **Caching**: Reduzir carga no database
+- **Pagination**: Limitar resultados de queries
+
+### Bottlenecks Identificados
+1. **WhatsApp Connection**: Single instance (limitação do Baileys)
+2. **Database Writes**: Pode escalar verticalmente ou sharding
+3. **AI API Calls**: Rate limits da OpenAI
+
+### Soluções Futuras
+- **Queue System**: RabbitMQ/SQS para processamento assíncrono
+- **Read Replicas**: PostgreSQL replicas para leitura
+- **CDN**: Para assets estáticos
+- **Microservices**: Separar serviços críticos
+
+---
+
+## Technology Stack
+
+### Backend
+- **Runtime**: Node.js + TypeScript
+- **Framework**: Express.js
+- **Database ORM**: Custom SQL (performance)
+- **Cache Client**: ioredis
+- **WhatsApp**: Baileys
+
+### Database
+- **Primary**: PostgreSQL 14+
+- **Cache**: Redis 7+
+- **Fallback**: SQLite 3
+
+### Infrastructure
+- **Deployment**: Render (containerized)
+- **Monitoring**: Logs + Health checks
+- **Backup**: Automated PostgreSQL backups
+
+---
+
+## Removido da Arquitetura
+
+### Supabase
+- **Razão**: Substituído por PostgreSQL direto
+- **Impacto**: Maior controle e performance
+- **Removido**: RLS Policies, auth.role() dependencies
+
+### Row Level Security (RLS)
+- **Razão**: Gerenciamento de acesso na aplicação
+- **Impacto**: Maior flexibilidade
+
+### Built-in Authentication
+- **Razão**: Sistema próprio mais simples
+- **Impacto**: Menos overhead
+
+---
+
+## Monitoring & Observability
+
+### Health Checks
 ```
-1. startTyping()     → Cliente vê "digitando..."
-2. wait(delay)       → Simula digitação
-3. stopTyping()      → Remove indicador
-4. wait(300ms)       → Pequeno delay natural
-5. sendMessage()     → Envia texto
+GET /health
+- PostgreSQL connection
+- Redis connection
+- WhatsApp session status
+```
+
+### Logs
+- **Application Logs**: console (stdout/stderr)
+- **Database Logs**: PostgreSQL logs
+- **Cache Logs**: Redis logs
+
+### Metrics (Future)
+- Request rate
+- Response time
+- Cache hit ratio
+- Database query time
+- Error rate
+
+---
+
+## Environment Configuration
+
+### Required Variables
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@host:port/db
+
+# Cache
+REDIS_URL=redis://host:port
+
+# API Keys
+OPENAI_API_KEY=sk-...
+
+# Application
+PORT=3000
+NODE_ENV=production
+```
+
+### Optional Variables
+```bash
+# Fallback SQLite
+SQLITE_PATH=./data/customers.db
+
+# Cache TTL (seconds)
+CACHE_TTL_PROFILES=3600
+CACHE_TTL_MESSAGES=900
 ```
 
 ---
 
-### 3. **OpenAIService** - IA Conversacional
+## Deployment Architecture
 
-**Responsabilidades:**
-- Gera respostas usando GPT-3.5-turbo
-- Mantém histórico de conversação
-- Gerencia contexto por chat
-- Otimiza uso de tokens
-
-**Características:**
-- Modelo: `gpt-3.5-turbo` (mais barato)
-- Temperatura: `0.9` (criativo/variado)
-- Max tokens: `300` (respostas curtas)
-- Histórico: Últimas 10 trocas + prompt sistema
-
-**Gestão de Memória:**
-```typescript
-// Para cada chatId mantém:
-[
-  { role: 'system', content: SYSTEM_PROMPT },
-  { role: 'user', content: 'Mensagem 1' },
-  { role: 'assistant', content: 'Resposta 1' },
-  { role: 'user', content: 'Mensagem 2' },
-  { role: 'assistant', content: 'Resposta 2' },
-  // ... até 10 trocas
-]
+### Production (Render)
+```
+Internet
+   ↓
+Render Load Balancer
+   ↓
+App Instance(s)
+   ├─→ PostgreSQL (31.97.255.95:3004)
+   └─→ Redis (31.97.255.95:3005)
 ```
 
-**Economia de Tokens:**
-- Mantém apenas últimas 20 mensagens (10 trocas)
-- Sempre preserva o prompt sistema
-- Auto-limpeza a cada 6 horas
-
----
-
-### 4. **HumanDelay** - Simulação Humana
-
-**Responsabilidades:**
-- Calcula tempo de leitura
-- Calcula tempo de digitação
-- Adiciona variação aleatória
-- Limita delays (min/max)
-
-**Parâmetros:**
-```typescript
-TYPING_SPEED_CPM = 250      // 250 caracteres/minuto
-READING_SPEED_WPM = 220     // 220 palavras/minuto
-RANDOM_VARIATION = 0.3      // ±30% de variação
-MIN_DELAY = 1000ms          // Mínimo 1 segundo
-MAX_DELAY = 15000ms         // Máximo 15 segundos
+### Development (Local)
 ```
-
-**Cálculo de Delay:**
-```typescript
-// Leitura
-readingTime = (palavras / 220 WPM) * 60s * 1000ms
-readingTime += random(±30%)
-
-// Digitação
-typingTime = (caracteres / 250 CPM) * 60s * 1000ms
-typingTime += random(±30%)
-
-// Total
-totalDelay = readingTime + typingTime
-totalDelay = clamp(totalDelay, 1000ms, 15000ms)
-```
-
-**Exemplo Real:**
-```
-Mensagem recebida: "Oi, quanto custa banho?" (29 chars, 4 palavras)
-
-1. Leitura:  (4 / 220) * 60 * 1000 = ~1090ms + variação = ~1200ms
-2. Resposta gerada: "Oi! O banho varia de acordo..." (60 chars)
-3. Digitação: (60 / 250) * 60 * 1000 = ~14400ms + variação = ~13800ms
-4. Total: 1200ms + 13800ms = 15000ms = 15 segundos ✅
+localhost:3000
+   ├─→ PostgreSQL (remote) or SQLite (local)
+   └─→ Redis (remote) or Memory Cache
 ```
 
 ---
 
-### 5. **MessageProcessor** - Orquestrador
+## API Design Principles
 
-**Responsabilidades:**
-- Valida mensagens recebidas
-- Coordena todos os serviços
-- Implementa lógica de negócio
-- Previne duplicação
+### RESTful Endpoints
+- **GET**: Buscar dados (idempotente)
+- **POST**: Criar recursos
+- **PUT/PATCH**: Atualizar recursos
+- **DELETE**: Remover recursos
 
-**Fluxo de Processamento:**
-```
-┌─────────────────────────────────────┐
-│ 1. shouldProcessMessage()           │
-│    - Ignora mensagens próprias      │
-│    - Ignora grupos                  │
-│    - Ignora duplicatas              │
-│    - Ignora sem texto               │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 2. Mark as processing               │
-│    - Previne processamento duplo    │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 3. wahaService.markAsRead()         │
-│    - Cliente vê ✓✓                  │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 4. humanDelay.shortRandomDelay()    │
-│    - 0.5-2.5s (natural)             │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 5. openaiService.generateResponse() │
-│    - Gera resposta com IA           │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 6. Calculate delays                 │
-│    - Leitura + Digitação            │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 7. Wait (reading time)              │
-│    - Simula leitura                 │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 8. wahaService.sendHumanized()      │
-│    - Digitando... + envio           │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ 9. Remove from processing           │
-│    - Libera para próxima msg        │
-└─────────────────────────────────────┘
-```
-
-**Prevenção de Duplicatas:**
-```typescript
-processingMessages = Set<string>
-messageId = `${chatId}-${timestamp}`
-
-if (processingMessages.has(messageId)) {
-  return; // Já processando
-}
-```
-
----
-
-## 🔌 Integrações Externas
-
-### WAHA API
-
-**Base URL:** `https://d-waha.kmvspi.easypanel.host`
-
-**Autenticação:**
-```http
-X-Api-Key: waha_7k9m2p4x8q6n1v5w3z0y4r8t2u6j9h5c
-```
-
-**Endpoints Usados:**
-| Endpoint | Método | Uso |
-|----------|--------|-----|
-| `/api/{session}/status` | GET | Status da sessão |
-| `/api/{session}/sendText` | POST | Enviar mensagem |
-| `/api/{session}/chats/{id}/typing` | POST | Indicador digitando |
-| `/api/{session}/chats/{id}/messages/mark-as-read` | POST | Marcar como lida |
-| `/api/{session}/webhooks` | POST | Configurar webhook |
-
----
-
-### OpenAI API
-
-**Modelo:** `gpt-3.5-turbo`
-
-**Configuração:**
-```typescript
+### Error Handling
+```json
 {
-  model: 'gpt-3.5-turbo',
-  temperature: 0.9,        // Criativo
-  max_tokens: 300,         // Respostas curtas
-  presence_penalty: 0.6,   // Evita repetição
-  frequency_penalty: 0.5   // Varia vocabulário
+  "error": true,
+  "message": "Human readable message",
+  "code": "ERROR_CODE",
+  "details": {}
 }
 ```
 
-**Custo por Requisição (média):**
-- Input: ~100 tokens = $0.00005
-- Output: ~150 tokens = $0.000225
-- **Total:** ~$0.000275 por mensagem
-
-**1000 mensagens = ~$0.28**
-
----
-
-## ⚡ Otimizações Implementadas
-
-### 1. Resposta Imediata ao Webhook
-```typescript
-// Responde imediatamente (não bloqueia WAHA)
-res.status(200).json({ received: true });
-
-// Processa em background
-messageProcessor.processMessage(payload).catch(...);
-```
-
-### 2. Gestão de Memória
-- Histórico limitado (10 trocas por chat)
-- Auto-limpeza a cada 6 horas
-- Tokens economizados
-
-### 3. Prevenção de Duplicatas
-- Set de mensagens em processamento
-- ID único: `chatId-timestamp`
-- Remove após processar
-
-### 4. Delays Inteligentes
-- Proporcionais ao tamanho
-- Variação aleatória (mais natural)
-- Limites min/max
-
----
-
-## 🔒 Segurança
-
-### Implementado:
-- ✅ Credenciais em `.env`
-- ✅ `.env` no `.gitignore`
-- ✅ Validação de mensagens
-- ✅ Ignora grupos
-- ✅ Timeout nas requisições
-
-### Recomendado (não implementado):
-- ⚠️ Rate limiting
-- ⚠️ Validação de webhook signature
-- ⚠️ Criptografia de logs
-- ⚠️ HTTPS obrigatório
-- ⚠️ Firewall rules
-
----
-
-## 📊 Monitoramento
-
-### Logs Estruturados:
-```
-📨 Nova mensagem       - Mensagem recebida
-🤖 Gerando resposta    - Chamando OpenAI
-⏱️ Tempo de leitura   - Delay calculado
-⏱️ Tempo de digitação - Delay calculado
-⌨️ Iniciando digitação - Mostrando indicador
-✅ Resposta enviada    - Sucesso
-❌ Erro ao...          - Falhas
-```
-
-### Métricas Disponíveis:
-- Mensagens em processamento
-- Conversações ativas
-- Timestamp da última mensagem
-- Status do sistema
-
----
-
-## 🚀 Deploy
-
-### Desenvolvimento:
-```bash
-npm run dev    # ts-node com hot reload
-```
-
-### Produção:
-```bash
-npm run build  # Compila TypeScript
-npm start      # Executa dist/index.js
-```
-
-### Variáveis de Ambiente:
-```env
-WAHA_API_URL
-WAHA_API_KEY
-OPENAI_API_KEY
-PORT
-WEBHOOK_PATH
-WAHA_SESSION
+### Response Format
+```json
+{
+  "success": true,
+  "data": {},
+  "meta": {
+    "timestamp": "ISO 8601",
+    "version": "1.0.0"
+  }
+}
 ```
 
 ---
 
-## 🔄 Ciclo de Vida
+## Próximos Passos
 
-```
-┌─────────────────────────────────────┐
-│ Início (npm start)                  │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ Load .env                           │
-│ Validate config                     │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ Initialize Services                 │
-│ - WahaService                       │
-│ - OpenAIService                     │
-│ - HumanDelay                        │
-│ - MessageProcessor                  │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ Start Express Server                │
-│ - Listen on PORT                    │
-│ - Setup routes                      │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ Check WAHA Session                  │
-│ (optional - não bloqueia)           │
-└──────────┬──────────────────────────┘
-           ▼
-┌─────────────────────────────────────┐
-│ Ready to Receive Webhooks           │
-│ 📱 Aguardando mensagens...          │
-└──────────┬──────────────────────────┘
-           │
-           │ (Cada 6 horas)
-           ▼
-┌─────────────────────────────────────┐
-│ Clean Old Histories                 │
-│ (background task)                   │
-└─────────────────────────────────────┘
-```
+### Performance
+- [ ] Implementar APM (Application Performance Monitoring)
+- [ ] Otimizar queries mais lentas
+- [ ] Adicionar índices baseado em uso real
+
+### Escalabilidade
+- [ ] Queue system para tarefas assíncronas
+- [ ] Database sharding se necessário
+- [ ] CDN para assets
+
+### Confiabilidade
+- [ ] Automated backups
+- [ ] Disaster recovery plan
+- [ ] Circuit breakers para APIs externas
 
 ---
 
-## 📈 Escalabilidade
-
-### Limitações Atuais:
-- Processamento síncrono (1 mensagem por vez por usuário)
-- Histórico em memória (perdido ao reiniciar)
-- Single instance (não distribuído)
-
-### Para Escalar:
-1. **Redis para histórico**
-   - Persistir conversações
-   - Compartilhar entre instâncias
-
-2. **Fila de mensagens**
-   - RabbitMQ ou SQS
-   - Processamento paralelo
-
-3. **Load balancer**
-   - Múltiplas instâncias
-   - Webhook sticky sessions
-
-4. **Database**
-   - PostgreSQL/MongoDB
-   - Logs e analytics
-
----
-
-## 🎯 Próximas Melhorias
-
-- [ ] Persistência de histórico (Redis/DB)
-- [ ] Rate limiting por usuário
-- [ ] Analytics e dashboard
-- [ ] Suporte a múltiplas sessões WAHA
-- [ ] Respostas com imagens
-- [ ] Agendamento de mensagens
-- [ ] Integração com CRM
-- [ ] Testes automatizados
-
----
-
-**Arquitetura simples, eficiente e humanizada! 🚀**
+**Última atualização**: 2025-10-19
+**Versão**: 1.0.0

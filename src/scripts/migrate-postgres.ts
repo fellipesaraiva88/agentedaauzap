@@ -145,35 +145,14 @@ class PostgresMigrationRunner {
    * Lê arquivo de migration SQL
    */
   private readMigrationFile(): string {
-    const schemaPath = path.join(__dirname, '../../supabase_migration.sql');
+    const schemaPath = path.join(__dirname, '../../postgres_migration.sql');
 
     if (!fs.existsSync(schemaPath)) {
       throw new Error(`Schema file not found: ${schemaPath}`);
     }
 
     log.info(`Lendo schema: ${schemaPath}`);
-    let sql = fs.readFileSync(schemaPath, 'utf-8');
-
-    // Remove RLS policies (específicas do Supabase, não funcionam em PostgreSQL standalone)
-    log.warning('Removendo RLS policies (específicas do Supabase)...');
-    sql = this.removeRLSPolicies(sql);
-
-    return sql;
-  }
-
-  /**
-   * Remove RLS policies e ALTER TABLE ENABLE ROW LEVEL SECURITY
-   * (isso é específico do Supabase e não funciona em PostgreSQL standalone)
-   */
-  private removeRLSPolicies(sql: string): string {
-    // Remove linhas de ENABLE ROW LEVEL SECURITY
-    sql = sql.replace(/ALTER TABLE .* ENABLE ROW LEVEL SECURITY;/g, '-- (RLS removido)');
-
-    // Remove CREATE POLICY
-    sql = sql.replace(/CREATE POLICY .* ON .* FOR ALL USING \(auth\.role\(\) = '.*?'\);/g, '-- (Policy removido)');
-
-    // Remove seção de comentários de RLS
-    sql = sql.replace(/-- =+\n-- POLÍTICAS RLS.*?\n-- =+/gs, '');
+    const sql = fs.readFileSync(schemaPath, 'utf-8');
 
     return sql;
   }

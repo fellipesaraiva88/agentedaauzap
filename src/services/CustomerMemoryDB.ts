@@ -2,26 +2,24 @@ import Database from 'better-sqlite3';
 import { UserProfile, Purchase, ScheduledFollowUp, ConversionOpportunity } from '../types/UserProfile';
 import fs from 'fs';
 import path from 'path';
-import { SupabaseClient } from './SupabaseClient';
 import { PostgreSQLClient, postgresClient } from './PostgreSQLClient';
 import { RedisClient, redisClient } from './RedisClient';
 
 /**
  * Tipo de banco de dados em uso
  */
-type DatabaseType = 'postgres' | 'supabase' | 'sqlite';
+type DatabaseType = 'postgres' | 'sqlite';
 
 /**
  * 🚀 SERVIÇO DE BANCO DE DADOS - NOVA GERAÇÃO
  * Armazena perfis, histórico e análises comportamentais
  *
- * PRIORIDADE: PostgreSQL direto → Supabase → SQLite
+ * PRIORIDADE: PostgreSQL direto → SQLite (fallback)
  * CACHE: Redis (perfis, contextos, queries frequentes)
  * PERFORMANCE: 10x mais rápido com cache
  */
 export class CustomerMemoryDB {
   private db: Database.Database | null = null;
-  private supabase: SupabaseClient | null = null;
   private postgres: PostgreSQLClient | null = null;
   private redis: RedisClient | null = null;
   private dbType: DatabaseType;
@@ -32,22 +30,14 @@ export class CustomerMemoryDB {
 
     // 🎯 DECIDE QUAL BANCO USAR (PRIORIDADE)
     const hasPostgres = process.env.DATABASE_URL;
-    const hasSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY;
 
     if (hasPostgres) {
-      // 🐘 MODO POSTGRESQL DIRETO (Produção PANGE)
+      // 🐘 MODO POSTGRESQL DIRETO (Produção)
       this.dbType = 'postgres';
       this.postgres = PostgreSQLClient.getInstance();
       this.redis = RedisClient.getInstance();
       console.log(`📊 CustomerMemoryDB: POSTGRESQL DIRETO + REDIS CACHE`);
       console.log('   ✅ Performance máxima com cache');
-    } else if (hasSupabase) {
-      // 🌐 MODO SUPABASE (PostgreSQL Cloud - Fallback)
-      this.dbType = 'supabase';
-      this.supabase = SupabaseClient.getInstance();
-      this.redis = RedisClient.getInstance();
-      console.log(`📊 CustomerMemoryDB: SUPABASE (fallback) + REDIS`);
-      console.log('   ⚠️  Configure DATABASE_URL para melhor performance');
     } else {
       // 💾 MODO SQLITE (Local - Dev)
       this.dbType = 'sqlite';
@@ -73,7 +63,7 @@ export class CustomerMemoryDB {
    */
   private requireSQLite(): Database.Database {
     if (!this.db) {
-      throw new Error('SQLite não está disponível. Método não implementado para Supabase ainda.');
+      throw new Error('SQLite não está disponível. Método não implementado para PostgreSQL ainda.');
     }
     return this.db;
   }
@@ -127,8 +117,6 @@ export class CustomerMemoryDB {
 
     if (this.dbType === 'postgres') {
       profile = await this.getOrCreateProfilePostgres(chatId);
-    } else if (this.dbType === 'supabase') {
-      profile = await this.getOrCreateProfileSupabase(chatId);
     } else {
       profile = this.getOrCreateProfileSQLite(chatId);
     }
@@ -198,51 +186,6 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * Obtém ou cria perfil (SUPABASE)
-   */
-  private async getOrCreateProfileSupabase(chatId: string): Promise<UserProfile> {
-    if (!this.supabase) throw new Error('Supabase not initialized');
-
-    try {
-      // Busca perfil existente (sem single: true - permite resultado vazio)
-      const profiles = await this.supabase.query('user_profiles', {
-        filter: { chat_id: chatId }
-      });
-
-      // Se encontrou perfil existente, retorna
-      if (profiles && Array.isArray(profiles) && profiles.length > 0) {
-        return this.rowToUserProfile(profiles[0]);
-      }
-
-      // Perfil não existe - cria novo
-      const now = Date.now();
-      const newProfile = await this.supabase.insert('user_profiles', {
-        chat_id: chatId,
-        last_message_timestamp: now
-      });
-
-      // Se insert retornou o objeto criado, usa ele
-      if (newProfile && Array.isArray(newProfile) && newProfile.length > 0) {
-        return this.rowToUserProfile(newProfile[0]);
-      }
-
-      // Senão, busca novamente (alguns inserts não retornam o objeto)
-      const createdProfiles = await this.supabase.query('user_profiles', {
-        filter: { chat_id: chatId }
-      });
-
-      if (createdProfiles && createdProfiles.length > 0) {
-        return this.rowToUserProfile(createdProfiles[0]);
-      }
-
-      throw new Error('Falha ao criar perfil no Supabase');
-    } catch (error) {
-      console.error('❌ Erro ao obter/criar perfil:', error);
-      throw error;
-    }
-  }
-
-  /**
    * 🚀 Atualiza perfil de usuário (COM CACHE INVALIDATION)
    *
    * Fluxo:
@@ -253,8 +196,6 @@ export class CustomerMemoryDB {
     // 1️⃣ Atualiza no banco
     if (this.dbType === 'postgres') {
       await this.updateProfilePostgres(profile);
-    } else if (this.dbType === 'supabase') {
-      await this.updateProfileSupabase(profile);
     } else {
       this.updateProfileSQLite(profile);
     }
@@ -356,66 +297,11 @@ export class CustomerMemoryDB {
   }
 
   /**
-   * Atualiza perfil (SUPABASE)
-   */
-  private async updateProfileSupabase(profile: Partial<UserProfile> & { chatId: string }): Promise<void> {
-    if (!this.supabase) throw new Error('Supabase not initialized');
-
-    console.log(`💾 [Supabase] Atualizando perfil para chatId: ${profile.chatId}`);
-    console.log(`💾 [Supabase] Dados recebidos:`, profile);
-
-    const updateData: Record<string, any> = {};
-
-    // Campos simples
-    const fieldMap: Record<string, string> = {
-      nome: 'nome',
-      petNome: 'pet_nome',
-      petRaca: 'pet_raca',
-      petPorte: 'pet_porte',
-      petTipo: 'pet_tipo',
-      lastMessageTimestamp: 'last_message_timestamp',
-      avgResponseTime: 'avg_response_time',
-      engagementScore: 'engagement_score',
-      engagementLevel: 'engagement_level',
-      conversationStage: 'conversation_stage',
-      purchaseIntent: 'purchase_intent',
-      lastSentiment: 'last_sentiment',
-      totalMessages: 'total_messages',
-      totalConversations: 'total_conversations',
-      notes: 'notes'
-    };
-
-    Object.entries(profile).forEach(([key, value]) => {
-      if (key !== 'chatId' && value !== undefined && fieldMap[key]) {
-        updateData[fieldMap[key]] = value;
-      }
-    });
-
-    // Preferências (JSONB no Supabase)
-    if (profile.preferences) {
-      updateData.preferences = profile.preferences; // Supabase aceita objeto direto
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      console.log(`💾 [Supabase] Dados a serem atualizados:`, updateData);
-      try {
-        const result = await this.supabase.update('user_profiles', updateData, { chat_id: profile.chatId });
-        console.log(`✅ [Supabase] Perfil atualizado com sucesso!`, result);
-      } catch (error) {
-        console.error('❌ [Supabase] Erro ao atualizar perfil:', error);
-        throw error;
-      }
-    } else {
-      console.log(`⚠️  [Supabase] Nenhum dado para atualizar`);
-    }
-  }
-
-  /**
    * Adiciona tempo de resposta ao histórico
    */
   public async addResponseTime(chatId: string, responseTime: number): Promise<void> {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
-      return this.addResponseTimeSupabase(chatId, responseTime);
+    if (this.dbType === 'postgres') {
+      return this.addResponseTimePostgres(chatId, responseTime);
     } else {
       return this.addResponseTimeSQLite(chatId, responseTime);
     }
@@ -445,19 +331,19 @@ export class CustomerMemoryDB {
     `).run(chatId, chatId);
   }
 
-  private async addResponseTimeSupabase(chatId: string, responseTime: number): Promise<void> {
-    if (!this.supabase) return;
+  private async addResponseTimePostgres(chatId: string, responseTime: number): Promise<void> {
+    if (!this.postgres) return;
 
     try {
-      await this.supabase.insert('response_times', {
+      await this.postgres.insert('response_times', {
         chat_id: chatId,
         response_time: responseTime
       });
 
-      // Mantém apenas últimas 10 respostas (TODO: implementar limpeza automática)
+      // Mantém apenas últimas 50 respostas (TODO: implementar limpeza automática)
       // Por enquanto, deixa acumular
     } catch (error) {
-      console.error('❌ Erro ao salvar response time no Supabase:', error);
+      console.error('❌ Erro ao salvar response time no PostgreSQL:', error);
     }
   }
 
@@ -465,8 +351,8 @@ export class CustomerMemoryDB {
    * Obtém histórico de tempos de resposta
    */
   public getResponseTimeHistory(chatId: string): number[] {
-    // TODO: Implementar versão PostgreSQL/Supabase desses métodos auxiliares
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    // TODO: Implementar versão PostgreSQL desses métodos auxiliares
+    if (this.dbType === 'postgres') {
       return []; // Retorna vazio por enquanto (usa avg já salvo)
     }
 
@@ -486,7 +372,7 @@ export class CustomerMemoryDB {
    * Adiciona interesse do usuário
    */
   public addInterest(chatId: string, interest: string): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres') {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -508,8 +394,8 @@ export class CustomerMemoryDB {
    * Obtém interesses do usuário
    */
   public getInterests(chatId: string): string[] {
-    // TODO: Implementar versão PostgreSQL/Supabase
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    // TODO: Implementar versão PostgreSQL
+    if (this.dbType === 'postgres') {
       return []; // Retorna vazio por enquanto
     }
 
@@ -528,7 +414,7 @@ export class CustomerMemoryDB {
    * Adiciona objeção do usuário
    */
   public addObjection(chatId: string, objection: string): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres') {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -542,8 +428,8 @@ export class CustomerMemoryDB {
    * Obtém objeções não resolvidas
    */
   public getObjections(chatId: string): string[] {
-    // TODO: Implementar versão PostgreSQL/Supabase
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    // TODO: Implementar versão PostgreSQL
+    if (this.dbType === 'postgres' ) {
       return []; // Retorna vazio por enquanto
     }
 
@@ -562,7 +448,7 @@ export class CustomerMemoryDB {
    * Adiciona compra ao histórico
    */
   public addPurchase(chatId: string, purchase: Purchase): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -576,8 +462,8 @@ export class CustomerMemoryDB {
    * Obtém histórico de compras
    */
   public getPurchaseHistory(chatId: string): Purchase[] {
-    // TODO: Implementar versão PostgreSQL/Supabase
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    // TODO: Implementar versão PostgreSQL
+    if (this.dbType === 'postgres' ) {
       return []; // Retorna vazio por enquanto
     }
 
@@ -601,8 +487,8 @@ export class CustomerMemoryDB {
    * Salva mensagem no histórico
    */
   public async saveMessage(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
-      return this.saveMessageSupabase(chatId, role, content, sentiment, engagementScore, messageId);
+    if (this.dbType === 'postgres') {
+      return this.saveMessagePostgres(chatId, role, content, sentiment, engagementScore, messageId);
     } else {
       return this.saveMessageSQLite(chatId, role, content, sentiment, engagementScore, messageId);
     }
@@ -628,12 +514,12 @@ export class CustomerMemoryDB {
     `).run(chatId, chatId);
   }
 
-  private async saveMessageSupabase(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
-    if (!this.supabase) throw new Error('Supabase not initialized');
+  private async saveMessagePostgres(chatId: string, role: 'user' | 'assistant', content: string, sentiment?: string, engagementScore?: number, messageId?: string): Promise<void> {
+    if (!this.postgres) throw new Error('PostgreSQL not initialized');
 
     try {
       // Insere mensagem
-      await this.supabase.insert('conversation_history', {
+      await this.postgres.insert('conversation_history', {
         chat_id: chatId,
         role,
         content,
@@ -643,11 +529,11 @@ export class CustomerMemoryDB {
       });
 
       // Mantém apenas últimas 50 mensagens por chat (limpa mensagens antigas)
-      // TODO: Implementar limpeza automática no Supabase
+      // TODO: Implementar limpeza automática no PostgreSQL
       // Por enquanto, deixa acumular (pode criar função postgres ou cron job depois)
 
     } catch (error) {
-      console.error('❌ Erro ao salvar mensagem no Supabase:', error);
+      console.error('❌ Erro ao salvar mensagem no PostgreSQL:', error);
       throw error;
     }
   }
@@ -662,8 +548,8 @@ export class CustomerMemoryDB {
     timestamp: number;
     sentiment?: string;
   }>> {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
-      return this.getRecentMessagesWithIdsSupabase(chatId, limit);
+    if (this.dbType === 'postgres') {
+      return this.getRecentMessagesWithIdsPostgres(chatId, limit);
     } else {
       return this.getRecentMessagesWithIdsSQLite(chatId, limit);
     }
@@ -695,29 +581,31 @@ export class CustomerMemoryDB {
     }));
   }
 
-  private async getRecentMessagesWithIdsSupabase(chatId: string, limit: number): Promise<Array<{
+  private async getRecentMessagesWithIdsPostgres(chatId: string, limit: number): Promise<Array<{
     messageId: string;
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
     sentiment?: string;
   }>> {
-    if (!this.supabase) throw new Error('Supabase not initialized');
+    if (!this.postgres) throw new Error('PostgreSQL not initialized');
 
     try {
       // Busca mensagens ordenadas por timestamp DESC
-      const messages = await this.supabase.query('conversation_history', {
-        filter: { chat_id: chatId },
-        order: { column: 'timestamp', ascending: false },
-        limit
-      });
+      const result = await this.postgres.query<any>(
+        `SELECT * FROM conversation_history
+         WHERE chat_id = $1
+         ORDER BY timestamp DESC
+         LIMIT $2`,
+        [chatId, limit]
+      );
 
-      if (!messages || messages.length === 0) {
+      if (!result.rows || result.rows.length === 0) {
         return [];
       }
 
       // Retorna em ordem cronológica (mais antiga primeiro)
-      return messages.reverse().map((m: any) => ({
+      return result.rows.reverse().map((m: any) => ({
         messageId: m.message_id || `fallback_${m.timestamp}`,
         role: m.role as 'user' | 'assistant',
         content: m.content,
@@ -725,7 +613,7 @@ export class CustomerMemoryDB {
         sentiment: m.sentiment
       }));
     } catch (error) {
-      console.error('❌ Erro ao buscar mensagens com IDs no Supabase:', error);
+      console.error('❌ Erro ao buscar mensagens com IDs no PostgreSQL:', error);
       return []; // Retorna vazio em caso de erro
     }
   }
@@ -734,7 +622,7 @@ export class CustomerMemoryDB {
    * Agenda follow-up
    */
   public scheduleFollowUp(followUp: ScheduledFollowUp): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -756,7 +644,7 @@ export class CustomerMemoryDB {
    * Obtém follow-ups pendentes
    */
   public getPendingFollowUps(): ScheduledFollowUp[] {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return []; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -785,7 +673,7 @@ export class CustomerMemoryDB {
    * Marca follow-up como executado
    */
   public markFollowUpExecuted(chatId: string): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -800,8 +688,8 @@ export class CustomerMemoryDB {
    * Salva oportunidade de conversão
    */
   public async saveConversionOpportunity(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
-      return this.saveConversionOpportunitySupabase(opportunity);
+    if (this.dbType === 'postgres' ) {
+      return this.saveConversionOpportunityPostgres(opportunity);
     } else {
       return this.saveConversionOpportunitySQLite(opportunity);
     }
@@ -822,11 +710,11 @@ export class CustomerMemoryDB {
     );
   }
 
-  private async saveConversionOpportunitySupabase(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
-    if (!this.supabase) return;
+  private async saveConversionOpportunityPostgres(opportunity: ConversionOpportunity & { chatId: string }): Promise<void> {
+    if (!this.postgres) return;
 
     try {
-      await this.supabase.insert('conversion_opportunities', {
+      await this.postgres.insert('conversion_opportunities', {
         chat_id: opportunity.chatId,
         score: opportunity.score,
         reason: opportunity.reason,
@@ -835,7 +723,7 @@ export class CustomerMemoryDB {
         close_message: opportunity.closeMessage || null
       });
     } catch (error) {
-      console.error('❌ Erro ao salvar conversion opportunity no Supabase:', error);
+      console.error('❌ Erro ao salvar conversion opportunity no PostgreSQL:', error);
     }
   }
 
@@ -843,7 +731,7 @@ export class CustomerMemoryDB {
    * Obtém oportunidades de conversão ativas
    */
   public getActiveConversionOpportunities(chatId: string): ConversionOpportunity[] {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return []; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -868,7 +756,7 @@ export class CustomerMemoryDB {
    * Converte row do banco para UserProfile
    */
   private rowToUserProfile(row: any): UserProfile {
-    // No Supabase, preferences já vem como objeto (JSONB)
+    // No PostgreSQL, preferences já vem como objeto (JSONB)
     // No SQLite, vem como string e precisa parse
     let preferences = {};
     if (row.preferences) {
@@ -916,7 +804,7 @@ export class CustomerMemoryDB {
    */
   public saveImmediateFollowUp(chatId: string, level: number, message: string, attempt: number): void {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -934,7 +822,7 @@ export class CustomerMemoryDB {
    * Marca cliente como abandonou (não respondeu 5 follow-ups)
    */
   public markClientAsAbandoned(chatId: string): void {
-    if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+    if (this.dbType === 'postgres' ) {
       return; // TODO: Implementar versão PostgreSQL
     }
     const db = this.requireSQLite();
@@ -954,7 +842,7 @@ export class CustomerMemoryDB {
    */
   public getImmediateFollowUps(chatId: string): any[] {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return []; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -973,7 +861,7 @@ export class CustomerMemoryDB {
    */
   public saveAppointmentReminder(reminder: any): void {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1002,7 +890,7 @@ export class CustomerMemoryDB {
    */
   public markReminderAsSent(chatId: string, appointmentTimestamp: number): void {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1021,7 +909,7 @@ export class CustomerMemoryDB {
    */
   public getPendingReminders(): any[] {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return []; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1058,7 +946,7 @@ export class CustomerMemoryDB {
     paymentUrl?: string;
   }): void {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1091,7 +979,7 @@ export class CustomerMemoryDB {
    */
   public updatePaymentStatus(paymentId: string, status: string): void {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1114,7 +1002,7 @@ export class CustomerMemoryDB {
    */
   public getPaymentById(paymentId: string): any {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return null; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1131,7 +1019,7 @@ export class CustomerMemoryDB {
    */
   public getPaymentsByCustomer(chatId: string): any[] {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return []; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1150,7 +1038,7 @@ export class CustomerMemoryDB {
    */
   public getPendingPayments(): any[] {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return []; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1169,7 +1057,7 @@ export class CustomerMemoryDB {
    */
   public getPaymentAnalytics(chatId?: string): any {
     try {
-      if (this.dbType === 'postgres' || this.dbType === 'supabase') {
+      if (this.dbType === 'postgres' ) {
         return null; // TODO: Implementar versão PostgreSQL
       }
       const db = this.requireSQLite();
@@ -1203,26 +1091,29 @@ export class CustomerMemoryDB {
       console.log('📊 CustomerMemoryDB (SQLite) fechado');
     }
 
-    if (this.supabase) {
-      this.supabase.close();
-      console.log('📊 CustomerMemoryDB (Supabase) desconectado');
+    if (this.postgres) {
+      this.postgres.close();
+      console.log('📊 CustomerMemoryDB (PostgreSQL) desconectado');
     }
   }
 }
 
 /*
  * ====================================================================
- * ⚠️  NOTA IMPORTANTE SOBRE MIGRAÇÃO SUPABASE
+ * ⚠️  NOTA IMPORTANTE SOBRE MIGRAÇÃO POSTGRESQL
  * ====================================================================
  *
  * STATUS DA ADAPTAÇÃO:
  *
- * ✅ ADAPTADOS (funcionam com SQLite e Supabase):
+ * ✅ ADAPTADOS (funcionam com SQLite e PostgreSQL):
  *   - getOrCreateProfile()
  *   - updateProfile()
+ *   - saveMessage()
+ *   - getRecentMessagesWithIds()
+ *   - addResponseTime()
+ *   - saveConversionOpportunity()
  *
  * ⚠️  PENDENTES (funcionam APENAS com SQLite):
- *   - addResponseTime()
  *   - getResponseTimeHistory()
  *   - addInterest()
  *   - getInterests()
@@ -1230,12 +1121,9 @@ export class CustomerMemoryDB {
  *   - getObjections()
  *   - addPurchase()
  *   - getPurchaseHistory()
- *   - saveMessage()
- *   - getRecentMessagesWithIds()
  *   - scheduleFollowUp()
  *   - getPendingFollowUps()
  *   - markFollowUpExecuted()
- *   - saveConversionOpportunity()
  *   - getActiveConversionOpportunities()
  *   - saveImmediateFollowUp()
  *   - markClientAsAbandoned()
@@ -1252,16 +1140,16 @@ export class CustomerMemoryDB {
  *
  * 📋 PRÓXIMOS PASSOS:
  *   1. Adaptar métodos restantes seguindo o padrão:
- *      - Criar método público async que roteia para SQLite ou Supabase
+ *      - Criar método público async que roteia para SQLite ou PostgreSQL
  *      - Criar método privado *SQLite() com lógica original
- *      - Criar método privado *Supabase() com lógica adaptada
+ *      - Criar método privado *Postgres() com lógica adaptada
  *   2. Atualizar queries SQL de timestamp (SQLite usa DATETIME, PostgreSQL usa TIMESTAMP)
  *   3. Atualizar queries de JSON (SQLite usa JSON string, PostgreSQL usa JSONB)
  *
- * 🎯 ESTRATÉGIA RECOMENDADA:
- *   - Manter funcionando com SQLite (100% compatível)
- *   - Adicionar suporte Supabase incrementalmente
- *   - Usar flag de ambiente para escolher banco
+ * 🎯 ESTRATÉGIA ATUAL:
+ *   - Manter SQLite funcionando (100% compatível para dev)
+ *   - PostgreSQL direto para produção (DATABASE_URL)
+ *   - Redis para cache de performance
  *
  * ====================================================================
  */

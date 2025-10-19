@@ -1,10 +1,10 @@
-# 🐘 MIGRATION GUIDE - PostgreSQL Schema
+# PostgreSQL + Redis Migration Guide
 
-## 📋 Overview
+## Overview
 
-Este guia explica como aplicar o schema PostgreSQL no banco de dados de produção (Render) ou em qualquer ambiente PostgreSQL standalone.
+Este guia explica como aplicar o schema PostgreSQL no banco de dados de produção (Render) ou em qualquer ambiente PostgreSQL.
 
-## ⚡ Quick Start
+## Quick Start
 
 ### 1. **Aplicar Migration**
 
@@ -34,19 +34,18 @@ git push
 
 ---
 
-## 🔧 Comandos Disponíveis
+## Comandos Disponíveis
 
 ### `npm run migrate:postgres`
 Aplica o schema completo do PostgreSQL no banco configurado em `DATABASE_URL`.
 
 **O que faz**:
-- ✅ Lê `supabase_migration.sql`
-- ✅ Remove RLS policies (específicas do Supabase)
-- ✅ Cria 16 tabelas
-- ✅ Cria 10 indexes
-- ✅ Cria 3 triggers
-- ✅ Cria 1 view
-- ✅ Valida schema criado
+- Lê `supabase_migration.sql`
+- Cria 16 tabelas
+- Cria 10 indexes
+- Cria 3 triggers
+- Cria 1 view
+- Valida schema criado
 
 **Quando usar**:
 - Primeira vez configurando o banco
@@ -58,9 +57,9 @@ Aplica o schema completo do PostgreSQL no banco configurado em `DATABASE_URL`.
 Verifica o estado atual do schema SEM fazer modificações.
 
 **O que faz**:
-- ✅ Lista todas as tabelas existentes
-- ✅ Verifica quais tabelas estão faltando
-- ✅ Não modifica nada
+- Lista todas as tabelas existentes
+- Verifica quais tabelas estão faltando
+- Não modifica nada
 
 **Quando usar**:
 - Antes de aplicar migration
@@ -69,12 +68,12 @@ Verifica o estado atual do schema SEM fazer modificações.
 ---
 
 ### `npm run migrate:force`
-⚠️ **CUIDADO**: Dropa TODAS as tabelas e recria do zero.
+**CUIDADO**: Dropa TODAS as tabelas e recria do zero.
 
 **O que faz**:
-- ❌ DROP SCHEMA public CASCADE
-- ✅ CREATE SCHEMA public
-- ✅ Aplica migration completa
+- DROP SCHEMA public CASCADE
+- CREATE SCHEMA public
+- Aplica migration completa
 
 **Quando usar**:
 - Apenas em desenvolvimento
@@ -86,13 +85,13 @@ Verifica o estado atual do schema SEM fazer modificações.
 Valida se o schema está completo e funcional.
 
 **O que verifica**:
-- ✅ 16 tabelas criadas
-- ✅ 10 indexes criados
-- ✅ 3 triggers funcionando
-- ✅ 1 view criada
-- ✅ Foreign keys corretas
-- ✅ Primary keys corretas
-- ✅ INSERT/SELECT/DELETE funcionando
+- 16 tabelas criadas
+- 10 indexes criados
+- 3 triggers funcionando
+- 1 view criada
+- Foreign keys corretas
+- Primary keys corretas
+- INSERT/SELECT/DELETE funcionando
 
 **Quando usar**:
 - Após migration
@@ -101,7 +100,7 @@ Valida se o schema está completo e funcional.
 
 ---
 
-## 📊 Schema Criado
+## Schema Criado
 
 ### **Tabelas Core (8)**
 1. `user_profiles` - Perfil completo do usuário/cliente
@@ -145,7 +144,7 @@ Valida se o schema está completo e funcional.
 
 ---
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Erro: `relation "user_profiles" does not exist`
 
@@ -158,16 +157,6 @@ npm run migrate:postgres
 
 ---
 
-### Erro: `schema "auth" does not exist`
-
-**Causa**: Tentando usar RLS policies do Supabase em PostgreSQL standalone
-
-**Solução**: O script de migration já remove isso automaticamente. Se você editou o SQL manualmente, rode:
-```bash
-npm run migrate:postgres
-```
-
----
 
 ### Erro: `connection timeout`
 
@@ -179,6 +168,7 @@ npm run migrate:postgres
 cat .env | grep DATABASE_URL
 
 # Teste conexão manual
+# Exemplo: DATABASE_URL=postgresql://user:password@host:5432/database
 psql $DATABASE_URL -c "SELECT NOW();"
 ```
 
@@ -201,26 +191,19 @@ npm run migrate:force
 
 ---
 
-## 🔐 Segurança
-
-### RLS Policies Removidas
-O script automaticamente remove as políticas RLS (`Row Level Security`) do Supabase porque:
-
-1. ✅ PostgreSQL standalone não tem `auth.role()`
-2. ✅ Nossa aplicação usa service role (acesso total)
-3. ✅ Autenticação é gerenciada pela aplicação, não pelo banco
+## Segurança
 
 ### Acesso ao Banco
-⚠️ **IMPORTANTE**: O banco não tem RLS, então:
+**IMPORTANTE**:
 
-- ✅ Aplicação tem acesso total via `DATABASE_URL`
-- ❌ NÃO exponha `DATABASE_URL` publicamente
-- ✅ Use variáveis de ambiente seguras
-- ✅ Render gerencia secrets automaticamente
+- Aplicação tem acesso total via `DATABASE_URL`
+- NÃO exponha `DATABASE_URL` publicamente
+- Use variáveis de ambiente seguras
+- Render gerencia secrets automaticamente
 
 ---
 
-## 📈 Performance
+## Performance
 
 ### Connection Pooling
 Configurado em `PostgreSQLClient.ts`:
@@ -232,9 +215,9 @@ connectionTimeout: 10s // Timeout de novas conexões
 
 ### Indexes Otimizados
 Todos os queries principais têm indexes:
-- ✅ Busca por `chat_id`
-- ✅ Ordenação por `timestamp DESC`
-- ✅ Filtros por status (`executed`, `ativo`)
+- Busca por `chat_id`
+- Ordenação por `timestamp DESC`
+- Filtros por status (`executed`, `ativo`)
 
 ### Redis Cache
 O sistema usa Redis + PostgreSQL:
@@ -244,13 +227,14 @@ O sistema usa Redis + PostgreSQL:
 
 ---
 
-## 🔄 Workflow de Deploy
+## Workflow de Deploy
 
 ### Development → Production
 
 ```bash
 # 1. Testar localmente (conectado ao banco Render)
-export DATABASE_URL="postgres://..."
+# Exemplo: DATABASE_URL=postgresql://user:password@host.render.com:5432/database
+export DATABASE_URL="postgresql://user:password@host:5432/database"
 npm run migrate:check
 npm run migrate:postgres
 npm run validate:schema
@@ -274,7 +258,7 @@ curl https://agente-petshop-whatsapp.onrender.com/webhook
 
 ---
 
-## 📝 Manutenção
+## Manutenção
 
 ### Backup Manual
 ```bash
@@ -311,7 +295,7 @@ WHERE executed = TRUE
 
 ---
 
-## 🎯 Checklist de Migration
+## Checklist de Migration
 
 - [ ] DATABASE_URL configurado no .env
 - [ ] Conexão PostgreSQL testada
@@ -326,16 +310,16 @@ WHERE executed = TRUE
 
 ---
 
-## 🆘 Suporte
+## Suporte
 
 ### Logs de Migration
 Os logs mostram:
-- ✅ Conexão estabelecida
-- ✅ Tabelas criadas (16)
-- ✅ Indexes criados (10)
-- ✅ Triggers criados (3)
-- ✅ Views criadas (1)
-- ❌ Erros (se houver)
+- Conexão estabelecida
+- Tabelas criadas (16)
+- Indexes criados (10)
+- Triggers criados (3)
+- Views criadas (1)
+- Erros (se houver)
 
 ### Validação Passou
 Se `validate:schema` passar com 7/7 OK, o schema está **100% funcional**.
@@ -347,13 +331,13 @@ Se `validate:schema` passar com 7/7 OK, o schema está **100% funcional**.
 
 ---
 
-## ✅ Status
+## Status
 
 **Versão**: 1.0.0
 **Última atualização**: 2025-01-19
-**Status**: ✅ Testado e funcionando
-**Compatibilidade**: PostgreSQL 12+, Render, Supabase (sem RLS)
+**Status**: Testado e funcionando
+**Compatibilidade**: PostgreSQL 12+, Render
 
 ---
 
-**🎉 Migration completa! O sistema agora está rodando com PostgreSQL + Redis para máxima performance.**
+**Migration completa! O sistema agora está rodando com PostgreSQL + Redis para máxima performance.**

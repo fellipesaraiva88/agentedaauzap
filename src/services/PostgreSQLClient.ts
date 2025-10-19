@@ -7,7 +7,7 @@ dotenv.config();
  * 🐘 POSTGRESQL CLIENT (Direct Connection)
  *
  * Gerencia conexão direta com PostgreSQL usando DATABASE_URL
- * Prioridade: DATABASE_URL > Supabase > SQLite
+ * Prioridade: DATABASE_URL > SQLite
  */
 export class PostgreSQLClient {
   private static instance: PostgreSQLClient;
@@ -35,7 +35,7 @@ export class PostgreSQLClient {
     const databaseUrl = process.env.DATABASE_URL;
 
     if (!databaseUrl) {
-      console.log('ℹ️  DATABASE_URL não configurado - usando Supabase/SQLite');
+      console.log('ℹ️  DATABASE_URL não configurado - usando SQLite');
       this.isConnected = false;
       return;
     }
