@@ -249,7 +249,8 @@ export class MessageProcessor {
       console.log('🧠 ========================================\n');
 
       // 🔥 CLIENTE RESPONDEU - Cancela follow-ups se houver
-      this.immediateFollowUpManager.onClientMessage(chatId);
+      // 🧠 NOVO: Passa mensagem para detectar irritação
+      this.immediateFollowUpManager.onClientMessage(chatId, body);
 
       // 🟢 DEFINE PRESENÇA COMO ONLINE
       await this.wahaService.setPresence(chatId, true);
@@ -842,10 +843,15 @@ export class MessageProcessor {
       // 1️⃣8️⃣ SALVA RESPOSTA NO HISTÓRICO
       await this.memoryDB.saveMessage(chatId, 'assistant', finalResponse);
 
-      // 1️⃣9️⃣ 🔥 INICIA FOLLOW-UPS IMEDIATOS SE NECESSÁRIO
+      // 1️⃣9️⃣ 🧠 INICIA NEURO-FOLLOWUPS SE NECESSÁRIO
       if (this.immediateFollowUpManager.shouldStartFollowUps(profile)) {
-        this.immediateFollowUpManager.startFollowUpSequence(chatId, profile);
-        console.log(`🔥 Follow-ups IMEDIATOS iniciados (5 níveis em 67min)`);
+        // Passa arquétipo detectado
+        this.immediateFollowUpManager.startFollowUpSequence(
+          chatId,
+          profile,
+          personalityProfile.archetype // Arquétipo psicológico
+        );
+        console.log(`🧠 NEURO-followups INICIADOS (7 níveis em 30min com ${personalityProfile.archetype})`);
       }
 
       // 2️⃣0️⃣ DEFINE PRESENÇA COMO OFFLINE (após delay humanizado)

@@ -1,15 +1,18 @@
 import { WahaService } from './WahaService';
 import { CustomerMemoryDB } from './CustomerMemoryDB';
-import { getFollowUpMessage, getFollowUpDelay, shouldContinueFollowUps, getPNLContext } from '../prompts/pnl-followups';
+import { getNeuroFollowUpMessage, getNeuroFollowUpDelay, getNeuroFollowUpContext } from '../prompts/neuro-followups';
+import { NeuroPersuasionEngine } from './NeuroPersuasionEngine';
+import { PersonalityArchetype } from './PersonalityProfiler';
 import { UserProfile } from '../types/UserProfile';
 
 /**
- * 🔥 GERENCIADOR DE FOLLOW-UPS IMEDIATOS
+ * 🧠 GERENCIADOR DE NEURO-FOLLOWUPS
  *
- * Sistema anti-abandono com PNL crescente:
- * - 5 tentativas em 67 minutos (2, 5, 10, 20, 30 min)
- * - PNL crescente: Suave → Intenso → Choque de Realidade
- * - Cancela se cliente responder
+ * Sistema anti-abandono com PNL + Neuromarketing:
+ * - 7 tentativas em 30 minutos (90s, 3min, 6min, 10min, 15min, 22min, 30min)
+ * - PNL crescente: Priming → Dopamina → FOMO → Autoridade → Escassez → Deadline → Última Chance
+ * - Auto-stop se detectar irritação
+ * - Personalizado por arquétipo psicológico
  * - Rastreia todas as tentativas
  */
 export class ImmediateFollowUpManager {
@@ -22,17 +25,29 @@ export class ImmediateFollowUpManager {
   // Último horário de mensagem do cliente
   private lastClientMessage: Map<string, number> = new Map();
 
+  // 🧠 NOVO: Engine de persuasão neurológica
+  private neuroEngine: NeuroPersuasionEngine;
+
+  // 🧠 NOVO: Arquétipos detectados por chat
+  private archetypes: Map<string, PersonalityArchetype | string> = new Map();
+
   constructor(
     private wahaService: WahaService,
     private memoryDB: CustomerMemoryDB
   ) {
-    console.log('🔥 ImmediateFollowUpManager inicializado!');
+    this.neuroEngine = new NeuroPersuasionEngine();
+    console.log('🧠 ImmediateFollowUpManager NEURO inicializado! (7 níveis)');
   }
 
   /**
-   * Inicia sequência de follow-ups para um chat
+   * Inicia sequência de NEURO-followups para um chat
+   * @param archetype - Arquétipo psicológico detectado (opcional)
    */
-  public startFollowUpSequence(chatId: string, profile: UserProfile): void {
+  public startFollowUpSequence(
+    chatId: string,
+    profile: UserProfile,
+    archetype?: PersonalityArchetype | string
+  ): void {
     // Cancela sequence anterior se existir
     this.cancelFollowUpSequence(chatId);
 
@@ -40,13 +55,19 @@ export class ImmediateFollowUpManager {
     this.attempts.set(chatId, 0);
     this.lastClientMessage.set(chatId, Date.now());
 
-    console.log(`🎯 Iniciando follow-up sequence para ${chatId}`);
+    // Salva arquétipo detectado
+    if (archetype) {
+      this.archetypes.set(chatId, archetype);
+      console.log(`🎭 Arquétipo detectado: ${archetype}`);
+    }
 
-    // Agenda os 5 follow-ups
+    console.log(`🧠 Iniciando NEURO-followup sequence para ${chatId}`);
+
+    // Agenda os 7 follow-ups NEUROLÓGICOS
     const timers: NodeJS.Timeout[] = [];
 
-    for (let level = 1; level <= 5; level++) {
-      const delay = getFollowUpDelay(level);
+    for (let level = 1; level <= 7; level++) {
+      const delay = getNeuroFollowUpDelay(level);
 
       const timer = setTimeout(async () => {
         await this.executeFollowUp(chatId, level, profile);
@@ -57,17 +78,19 @@ export class ImmediateFollowUpManager {
 
     this.activeTimers.set(chatId, timers);
 
-    console.log(`✅ 5 follow-ups ACELERADOS agendados para ${chatId} (30s, 2min, 5min, 10min, 20min = total 20min)`);
+    console.log(`✅ 7 NEURO-followups agendados para ${chatId}`);
+    console.log(`   Sequência: 90s → 3min → 6min → 10min → 15min → 22min → 30min`);
+    console.log(`   Técnicas: Priming → Dopamina → FOMO → Autoridade → Escassez → Deadline → Última Chance`);
   }
 
   /**
-   * Executa um follow-up específico
+   * Executa um NEURO-followup específico
    */
   private async executeFollowUp(chatId: string, level: number, profile: UserProfile): Promise<void> {
     try {
       // Verifica se cliente respondeu enquanto isso
       if (this.clientRespondedRecently(chatId, level)) {
-        console.log(`⏭️ Cliente ${chatId} respondeu, cancelando follow-up nível ${level}`);
+        console.log(`⏭️ Cliente ${chatId} respondeu, cancelando NEURO-followup nível ${level}`);
         this.cancelFollowUpSequence(chatId);
         return;
       }
@@ -76,11 +99,15 @@ export class ImmediateFollowUpManager {
       const currentAttempts = (this.attempts.get(chatId) || 0) + 1;
       this.attempts.set(chatId, currentAttempts);
 
-      // Gera mensagem personalizada
-      const message = this.generateFollowUpMessage(level, profile);
+      // Pega arquétipo (se detectado)
+      const archetype = this.archetypes.get(chatId) || 'default';
 
-      console.log(`📤 Enviando follow-up nível ${level} para ${chatId}:`);
-      console.log(`   Tentativa ${currentAttempts}/5`);
+      // Gera mensagem NEURO personalizada
+      const message = this.generateFollowUpMessage(level, profile, archetype);
+
+      console.log(`🧠 Enviando NEURO-followup nível ${level} para ${chatId}:`);
+      console.log(`   Tentativa ${currentAttempts}/7`);
+      console.log(`   Arquétipo: ${archetype}`);
       console.log(`   Mensagem: ${message.substring(0, 50)}...`);
 
       // Envia mensagem
@@ -89,13 +116,16 @@ export class ImmediateFollowUpManager {
       // Salva no banco
       this.memoryDB.saveImmediateFollowUp(chatId, level, message, currentAttempts);
 
-      // Log de PNL aplicada
-      const pnlContext = getPNLContext(level);
-      console.log(`🧠 PNL aplicada: ${pnlContext.split('\\n')[1]}`);
+      // Log de técnica aplicada
+      const neuroContext = getNeuroFollowUpContext(level);
+      console.log(`🧠 Técnica aplicada: ${neuroContext.split('\n')[1]}`);
+
+      // 🧠 NOVO: Loga para análise
+      this.neuroEngine.logPersuasionAttempt(chatId, level, archetype, false);
 
       // Se foi o último nível, marca como "desistiu"
-      if (level === 5) {
-        console.log(`❌ Cliente ${chatId} não respondeu após 5 tentativas (67 min)`);
+      if (level === 7) {
+        console.log(`❌ Cliente ${chatId} não respondeu após 7 NEURO-tentativas (30 min)`);
         this.memoryDB.markClientAsAbandoned(chatId);
         this.cancelFollowUpSequence(chatId);
       }
@@ -106,13 +136,17 @@ export class ImmediateFollowUpManager {
   }
 
   /**
-   * Gera mensagem personalizada para o nível
+   * Gera mensagem NEURO personalizada para o nível
    */
-  private generateFollowUpMessage(level: number, profile: UserProfile): string {
+  private generateFollowUpMessage(
+    level: number,
+    profile: UserProfile,
+    archetype: PersonalityArchetype | string
+  ): string {
     const petName = profile.petNome || 'seu pet';
-    const problem = this.detectProblem(profile);
 
-    return getFollowUpMessage(level, petName, problem);
+    // Usa sistema NEURO-followups
+    return getNeuroFollowUpMessage(level, archetype, petName);
   }
 
   /**
@@ -180,14 +214,34 @@ export class ImmediateFollowUpManager {
 
   /**
    * Notifica que cliente respondeu (para cancelar follow-ups)
+   * 🧠 NOVO: Detecta irritação e para automaticamente
    */
-  public onClientMessage(chatId: string): void {
+  public onClientMessage(chatId: string, message?: string): void {
     this.lastClientMessage.set(chatId, Date.now());
+
+    // 🧠 DETECTA IRRITAÇÃO
+    if (message && this.neuroEngine.detectsIrritation(message)) {
+      console.log(`⚠️ IRRITAÇÃO DETECTADA em ${chatId}: "${message}"`);
+
+      // Cancela follow-ups
+      this.cancelFollowUpSequence(chatId);
+
+      // Envia mensagem de desculpas
+      const apology = this.neuroEngine.generateApologyMessage();
+      this.wahaService.sendMessage(chatId, apology).catch(err => {
+        console.error('Erro ao enviar desculpas:', err);
+      });
+
+      console.log(`✅ Follow-ups CANCELADOS + desculpas enviadas`);
+      return;
+    }
+
+    // Cancela normalmente
     this.cancelFollowUpSequence(chatId);
   }
 
   /**
-   * Verifica se deve iniciar follow-ups para este chat
+   * Verifica se deve iniciar NEURO-followups para este chat
    */
   public shouldStartFollowUps(profile: UserProfile): boolean {
     // Não inicia se já tem follow-ups ativos
@@ -195,9 +249,9 @@ export class ImmediateFollowUpManager {
       return false;
     }
 
-    // Não inicia se já tentou 5 vezes e falhou
+    // Não inicia se já tentou 7 vezes e falhou
     const attempts = this.attempts.get(profile.chatId) || 0;
-    if (attempts >= 5) {
+    if (attempts >= 7) {
       return false;
     }
 
