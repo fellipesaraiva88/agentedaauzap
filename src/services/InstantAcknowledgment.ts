@@ -85,7 +85,7 @@ export class InstantAcknowledgment {
     }
 
     // VIP: mais de R$1000 gasto OU mais de 10 serviços
-    const totalSpent = profile.purchaseHistory?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+    const totalSpent = profile.purchaseHistory?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0;
     const totalServices = profile.purchaseHistory?.length || 0;
 
     if (totalSpent > 1000 || totalServices >= 10) {

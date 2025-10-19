@@ -1208,3 +1208,6 @@ export class CustomerMemoryDB {
  *
  * ====================================================================
  */
+
+// Re-export types for external use
+export type { UserProfile, Purchase, ScheduledFollowUp, ConversionOpportunity } from '../types/UserProfile';

@@ -154,8 +154,8 @@ export class ProofSocialEngine {
     // 3. Demonstra interesse mas hesita
 
     if (
-      intent === CustomerIntent.INFORMACAO_SERVICOS ||
-      intent === CustomerIntent.AGENDAMENTO
+      intent === CustomerIntent.INFORMACAO_SERVICO ||
+      intent === CustomerIntent.AGENDAR_SERVICO
     ) {
       return true;
     }

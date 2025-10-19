@@ -95,7 +95,7 @@ export class PostgreSQLClient {
   /**
    * QUERY - Executa query SQL
    */
-  public async query<T = any>(
+  public async query<T extends Record<string, any> = any>(
     sql: string,
     params?: any[]
   ): Promise<QueryResult<T>> {
@@ -117,7 +117,7 @@ export class PostgreSQLClient {
   /**
    * GET ONE - Busca um único registro
    */
-  public async getOne<T = any>(
+  public async getOne<T extends Record<string, any> = any>(
     sql: string,
     params?: any[]
   ): Promise<T | null> {
@@ -128,7 +128,7 @@ export class PostgreSQLClient {
   /**
    * GET MANY - Busca múltiplos registros
    */
-  public async getMany<T = any>(
+  public async getMany<T extends Record<string, any> = any>(
     sql: string,
     params?: any[]
   ): Promise<T[]> {
@@ -139,7 +139,7 @@ export class PostgreSQLClient {
   /**
    * INSERT - Insere registro e retorna
    */
-  public async insert<T = any>(
+  public async insert<T extends Record<string, any> = any>(
     table: string,
     data: Record<string, any>
   ): Promise<T> {
@@ -160,7 +160,7 @@ export class PostgreSQLClient {
   /**
    * UPDATE - Atualiza registro(s)
    */
-  public async update<T = any>(
+  public async update<T extends Record<string, any> = any>(
     table: string,
     data: Record<string, any>,
     where: Record<string, any>

@@ -190,7 +190,7 @@ export class ImmediateFollowUpManager {
   private getTotalDelayUntilLevel(level: number): number {
     let total = 0;
     for (let i = 1; i <= level; i++) {
-      total += getFollowUpDelay(i);
+      total += getNeuroFollowUpDelay(i);
     }
     return total;
   }
