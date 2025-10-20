@@ -590,11 +590,44 @@ Venda FELICIDADE pra família`;
   }
 
   /**
-   * Remove TODOS os emojis de um texto
-   * Regex que captura todos os emojis Unicode
+   * Remove TODOS os emojis de um texto - DUPLA CAMADA DE PROTEÇÃO
+   *
+   * Camada 1: Regex completa de emojis Unicode
+   * Camada 2: Regex de símbolos e caracteres especiais restantes
+   * Camada 3: Lista negra de emojis comuns que escapam regex
    */
   private removeEmojis(text: string): string {
-    return text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F910}-\u{1F96B}]|[\u{1F980}-\u{1F9E0}]/gu, '');
+    if (!text) return text;
+
+    // CAMADA 1: Emojis Unicode principais (ranges completos)
+    let cleaned = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F910}-\u{1F96B}]|[\u{1F980}-\u{1F9E0}]/gu, '');
+
+    // CAMADA 2: Emojis adicionais e variações
+    cleaned = cleaned.replace(/[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{231A}]|[\u{231B}]|[\u{25AA}]|[\u{25AB}]|[\u{25B6}]|[\u{25C0}]|[\u{25FB}-\u{25FE}]/gu, '');
+
+    // CAMADA 3: Emoticons textuais e símbolos especiais
+    cleaned = cleaned.replace(/[\u{203C}]|[\u{2049}]|[\u{20E3}]|[\u{FE0F}]|[\u{200D}]/gu, '');
+
+    // CAMADA 4: Flags de países (emojis de bandeiras)
+    cleaned = cleaned.replace(/[\u{1F1E0}-\u{1F1FF}]{2}/gu, '');
+
+    // CAMADA 5: Lista negra de emojis específicos que costumam escapar
+    const blacklist = ['❤️', '❤', '🐕', '🐶', '🐾', '🐱', '🐈', '💙', '💚', '💛', '💜', '🧡', '🖤', '🤍', '🤎',
+      '😊', '😄', '😃', '😀', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😇', '🥰', '😍', '🤩', '😘', '😗',
+      '☺️', '☺', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐',
+      '✨', '⭐', '🌟', '💫', '⚡', '🔥', '💥', '☀️', '🌈', '☁️', '⛅', '🌤️', '⛈️', '🌩️', '🌧️', '💧', '💦',
+      '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖',
+      '✅', '❌', '⚠️', '‼️', '❗', '❓', '❔', '⁉️', '💯', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚪', '⚫',
+      '🎉', '🎊', '🎈', '🎁', '🎀', '🏆', '🥇', '🥈', '🥉', '🏅'];
+
+    for (const emoji of blacklist) {
+      cleaned = cleaned.split(emoji).join('');
+    }
+
+    // CAMADA 6: Remove espaços múltiplos causados pela remoção
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+
+    return cleaned;
   }
 
   /**

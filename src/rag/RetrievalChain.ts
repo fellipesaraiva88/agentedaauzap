@@ -90,9 +90,11 @@ export class RetrievalChain {
         const hasContext = context !== 'Nenhum contexto encontrado.';
 
         if (!hasContext) {
-          // Sem contexto - responde sem RAG
+          // FALLBACK: Sem contexto específico - fornece resposta útil genérica
+          const fallbackAnswer = this.generateFallbackResponse(question);
+
           return {
-            answer: '',
+            answer: fallbackAnswer,
             sources: [],
             usedContext: false
           };
@@ -179,6 +181,37 @@ Responda baseando-se no contexto acima:`],
       return `[DOCUMENTO ${i + 1}] ${title} (relevância: ${similarity}%)
 ${content}`;
     }).join('\n\n---\n\n');
+  }
+
+  /**
+   * Gera resposta de fallback quando RAG não encontra contexto
+   */
+  private generateFallbackResponse(question: string): string {
+    const lowerQuestion = question.toLowerCase();
+
+    // Detecta tipo de pergunta e responde apropriadamente
+    if (lowerQuestion.match(/quanto|pre[cç]o|valor|custa/)) {
+      return 'opa, deixa eu ver os valores atualizados pra vc. me passa mais detalhes do que vc precisa?';
+    }
+
+    if (lowerQuestion.match(/hor[aá]rio|abre|fecha|funciona|que horas/)) {
+      return 'deixa eu verificar os horarios certinho pra vc, um segundo';
+    }
+
+    if (lowerQuestion.match(/onde|endere[cç]o|fica|localiza/)) {
+      return 'to pegando o endereco completo pra vc';
+    }
+
+    if (lowerQuestion.match(/servi[cç]o|oferece|faz|tem/)) {
+      return 'deixa eu ver o que temos disponivel pra vc, um minuto';
+    }
+
+    if (lowerQuestion.match(/vaga|disponibilidade|pode|consegue/)) {
+      return 'vou verificar a disponibilidade pra vc';
+    }
+
+    // Fallback genérico amigável
+    return 'deixa eu verificar isso pra vc certinho, um momento';
   }
 
   /**

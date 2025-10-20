@@ -85,10 +85,10 @@ export const PETSHOP_CONFIG = {
  */
 export function getServicosDescricao(): string {
   const categorias = {
-    higiene: '🛁 Higiene e Estética',
-    estética: '✨ Estética',
-    saúde: '🏥 Saúde',
-    hospedagem: '🏠 Hospedagem',
+    higiene: 'Higiene e Estética',
+    estética: 'Estética',
+    saúde: 'Saúde',
+    hospedagem: 'Hospedagem',
   };
 
   const servicosPorCategoria: Record<string, typeof PETSHOP_CONFIG.servicos> = {};

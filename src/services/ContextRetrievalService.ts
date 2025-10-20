@@ -92,83 +92,395 @@ export class ContextRetrievalService {
    * Recupera snapshot completo de contexto
    */
   public async getFullContext(chatId: string): Promise<ContextSnapshot> {
-    // TODO: Migrar para PostgreSQL via CustomerMemoryDB
-    // As tabelas necessárias (tutors, pets, emotional_context, service_history,
-    // conversation_episodes, learned_preferences) não existem no PostgreSQL atual
-    throw new Error('TODO: Migrar getFullContext para PostgreSQL - tabelas ainda não existem');
+    try {
+      // Busca tutor pelo chat_id
+      const tutorData = await this.getTutorData(chatId);
+      const tutorId = tutorData?.tutorId;
+
+      // Busca dados em paralelo para performance
+      const [
+        pets,
+        ultimasEmocoes,
+        servicosAnteriores,
+        preferencias,
+        ultimaConversa
+      ] = await Promise.all([
+        this.getPetsData(tutorId),
+        this.getEmotionalHistory(chatId),
+        this.getServiceHistory(tutorId),
+        this.getPreferences(tutorId),
+        this.getLastConversation(chatId)
+      ]);
+
+      // Calcula estatísticas
+      const stats = await this.getStats(tutorId, servicosAnteriores);
+
+      // Gera flags importantes
+      const flags = this.generateFlags(tutorData, pets, stats, ultimaConversa);
+
+      return {
+        tutor: tutorData,
+        pets,
+        ultimasEmocoes,
+        servicosAnteriores,
+        preferencias,
+        ultimaConversa,
+        stats,
+        flags
+      };
+    } catch (error) {
+      console.error('❌ Erro ao recuperar contexto completo:', error);
+
+      // Retorna contexto vazio em caso de erro
+      return {
+        tutor: null,
+        pets: [],
+        ultimasEmocoes: [],
+        servicosAnteriores: [],
+        preferencias: {},
+        ultimaConversa: undefined,
+        stats: {
+          totalServicos: 0,
+          valorTotalGasto: 0,
+          conversoes: 0,
+          taxaConversao: 0
+        },
+        flags: {
+          clienteNovo: true,
+          clienteVip: false,
+          clienteInativo: false,
+          onboardingCompleto: false,
+          temProximaAcao: false
+        }
+      };
+    }
   }
 
   /**
    * Recupera dados do tutor
-   * TODO: Migrar para PostgreSQL - tabela 'tutors' não existe
    */
-  private getTutorData(chatId: string): ContextSnapshot['tutor'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela tutors existir
-    return null;
+  private async getTutorData(chatId: string): Promise<ContextSnapshot['tutor']> {
+    try {
+      const tutor = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT
+          tutor_id,
+          nome,
+          estilo_comunicacao,
+          horario_preferido,
+          metodo_pagamento_preferido
+        FROM tutors
+        WHERE chat_id = $1`,
+        [chatId]
+      );
+
+      if (!tutor) return null;
+
+      // Busca arquétipo mais frequente do histórico emocional
+      const arquetipo = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT arquetipo, COUNT(*) as freq
+        FROM emotional_context
+        WHERE tutor_id = $1
+        GROUP BY arquetipo
+        ORDER BY freq DESC
+        LIMIT 1`,
+        [tutor.tutor_id]
+      );
+
+      return {
+        tutorId: tutor.tutor_id,
+        nome: tutor.nome || 'Cliente',
+        estiloComum: tutor.estilo_comunicacao || 'casual',
+        arquetipoFrequente: arquetipo?.arquetipo || 'equilibrado',
+        horarioPreferido: tutor.horario_preferido || undefined,
+        metodoPagamentoPreferido: tutor.metodo_pagamento_preferido || undefined
+      };
+    } catch (error) {
+      console.error('Erro ao buscar dados do tutor:', error);
+      return null;
+    }
   }
 
   /**
    * Recupera dados dos pets
-   * TODO: Migrar para PostgreSQL - tabela 'pets' não existe
    */
-  private getPetsData(tutorId?: string): ContextSnapshot['pets'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela pets existir
-    return [];
+  private async getPetsData(tutorId?: string): Promise<ContextSnapshot['pets']> {
+    if (!tutorId) return [];
+
+    try {
+      const pets = await this.memoryDB['postgres'].getMany<any>(
+        `SELECT
+          pet_id,
+          nome,
+          tipo,
+          especie,
+          raca,
+          porte,
+          data_nascimento,
+          temperamento,
+          proxima_vacina
+        FROM pets
+        WHERE tutor_id = $1 AND ativo = true
+        ORDER BY created_at DESC`,
+        [tutorId]
+      );
+
+      // Busca último serviço de cada pet
+      const result = await Promise.all(
+        pets.map(async (pet: any) => {
+          const ultimoServico = await this.memoryDB['postgres'].getOne<any>(
+            `SELECT data_servico
+            FROM service_history
+            WHERE pet_id = $1
+            ORDER BY data_servico DESC
+            LIMIT 1`,
+            [pet.pet_id]
+          );
+
+          // Calcula idade se tiver data de nascimento
+          let idade: number | undefined;
+          if (pet.data_nascimento) {
+            const nascimento = new Date(pet.data_nascimento);
+            const hoje = new Date();
+            idade = hoje.getFullYear() - nascimento.getFullYear();
+          }
+
+          return {
+            petId: pet.pet_id,
+            nome: pet.nome,
+            especie: pet.tipo || pet.especie,
+            raca: pet.raca || undefined,
+            porte: pet.porte || undefined,
+            idade,
+            temperamento: pet.temperamento || undefined,
+            ultimoServico: ultimoServico?.data_servico ? new Date(ultimoServico.data_servico) : undefined,
+            proximaVacina: pet.proxima_vacina ? new Date(pet.proxima_vacina) : undefined
+          };
+        })
+      );
+
+      return result;
+    } catch (error) {
+      console.error('Erro ao buscar dados dos pets:', error);
+      return [];
+    }
   }
 
   /**
    * Recupera histórico emocional
-   * TODO: Migrar para PostgreSQL - tabela 'emotional_context' não existe
    */
-  private getEmotionalHistory(chatId: string): ContextSnapshot['ultimasEmocoes'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela emotional_context existir
-    return [];
+  private async getEmotionalHistory(chatId: string): Promise<ContextSnapshot['ultimasEmocoes']> {
+    try {
+      // Busca tutor_id
+      const tutor = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT tutor_id FROM tutors WHERE chat_id = $1`,
+        [chatId]
+      );
+
+      if (!tutor) return [];
+
+      const emocoes = await this.memoryDB['postgres'].getMany<any>(
+        `SELECT
+          emocao_primaria,
+          intensidade_emocional,
+          analisado_em,
+          contexto_conversa
+        FROM emotional_context
+        WHERE tutor_id = $1
+        ORDER BY analisado_em DESC
+        LIMIT 5`,
+        [tutor.tutor_id]
+      );
+
+      return emocoes.map((e: any) => ({
+        emocao: e.emocao_primaria || 'neutro',
+        intensidade: e.intensidade_emocional || 50,
+        data: new Date(e.analisado_em),
+        contexto: e.contexto_conversa || undefined
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar histórico emocional:', error);
+      return [];
+    }
   }
 
   /**
    * Recupera histórico de serviços
-   * TODO: Migrar para PostgreSQL - tabela 'service_history' não existe
    */
-  private getServiceHistory(tutorId?: string): ContextSnapshot['servicosAnteriores'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela service_history existir
-    return [];
+  private async getServiceHistory(tutorId?: string): Promise<ContextSnapshot['servicosAnteriores']> {
+    if (!tutorId) return [];
+
+    try {
+      const servicos = await this.memoryDB['postgres'].getMany<any>(
+        `SELECT
+          tipo_servico,
+          data_servico,
+          valor,
+          avaliacao
+        FROM service_history
+        WHERE tutor_id = $1
+        ORDER BY data_servico DESC
+        LIMIT 10`,
+        [tutorId]
+      );
+
+      return servicos.map((s: any) => ({
+        tipo: s.tipo_servico || 'servico',
+        data: new Date(s.data_servico),
+        satisfacao: s.avaliacao || undefined,
+        valor: parseFloat(s.valor) || undefined
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar histórico de serviços:', error);
+      return [];
+    }
   }
 
   /**
    * Recupera preferências aprendidas
-   * TODO: Migrar para PostgreSQL - tabela 'learned_preferences' não existe
    */
-  private getPreferences(tutorId?: string): ContextSnapshot['preferencias'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela learned_preferences existir
-    return {};
+  private async getPreferences(tutorId?: string): Promise<ContextSnapshot['preferencias']> {
+    if (!tutorId) return {};
+
+    try {
+      const prefs = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT
+          horario_preferido,
+          estilo_comunicacao,
+          faixa_preco,
+          servicos_interesse
+        FROM learned_preferences
+        WHERE tutor_id = $1
+        ORDER BY updated_at DESC
+        LIMIT 1`,
+        [tutorId]
+      );
+
+      if (!prefs) return {};
+
+      return {
+        horario: prefs.horario_preferido || undefined,
+        comunicacao: prefs.estilo_comunicacao || undefined,
+        preco: prefs.faixa_preco || undefined,
+        servicos: prefs.servicos_interesse || []
+      };
+    } catch (error) {
+      console.error('Erro ao buscar preferências:', error);
+      return {};
+    }
   }
 
   /**
    * Recupera última conversa
-   * TODO: Migrar para PostgreSQL - tabela 'conversation_episodes' não existe
    */
-  private getLastConversation(chatId: string): ContextSnapshot['ultimaConversa'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabela conversation_episodes existir
-    return undefined;
+  private async getLastConversation(chatId: string): Promise<ContextSnapshot['ultimaConversa']> {
+    try {
+      // Busca tutor_id
+      const tutor = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT tutor_id FROM tutors WHERE chat_id = $1`,
+        [chatId]
+      );
+
+      if (!tutor) return undefined;
+
+      const conversa = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT
+          inicio_conversa,
+          converteu,
+          intencao_detectada,
+          valor_convertido,
+          proximos_passos
+        FROM conversation_episodes
+        WHERE tutor_id = $1
+        ORDER BY inicio_conversa DESC
+        LIMIT 1`,
+        [tutor.tutor_id]
+      );
+
+      if (!conversa) return undefined;
+
+      return {
+        data: new Date(conversa.inicio_conversa),
+        resultado: conversa.converteu ? 'converteu' : 'nao_converteu',
+        intencao: conversa.intencao_detectada || 'desconhecido',
+        valorVenda: conversa.valor_convertido ? parseFloat(conversa.valor_convertido) : undefined,
+        proximoPasso: conversa.proximos_passos || undefined
+      };
+    } catch (error) {
+      console.error('Erro ao buscar última conversa:', error);
+      return undefined;
+    }
   }
 
   /**
    * Calcula estatísticas
-   * TODO: Migrar para PostgreSQL - depende de tabelas não existentes
    */
-  private getStats(
+  private async getStats(
     tutorId: string | undefined,
     servicosAnteriores: ContextSnapshot['servicosAnteriores']
-  ): ContextSnapshot['stats'] {
-    // TODO: Implementar usando CustomerMemoryDB quando tabelas existirem
-    return {
-      totalServicos: 0,
-      valorTotalGasto: 0,
-      satisfacaoMedia: undefined,
-      diasDesdeUltimoServico: undefined,
-      conversoes: 0,
-      taxaConversao: 0
-    };
+  ): Promise<ContextSnapshot['stats']> {
+    if (!tutorId) {
+      return {
+        totalServicos: 0,
+        valorTotalGasto: 0,
+        conversoes: 0,
+        taxaConversao: 0
+      };
+    }
+
+    try {
+      // Busca estatísticas do tutor
+      const tutor = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT
+          total_servicos,
+          valor_total_gasto,
+          conversoes,
+          taxa_conversao
+        FROM tutors
+        WHERE tutor_id = $1`,
+        [tutorId]
+      );
+
+      // Calcula satisfação média dos serviços
+      const satisfacao = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT AVG(avaliacao) as media
+        FROM service_history
+        WHERE tutor_id = $1 AND avaliacao IS NOT NULL`,
+        [tutorId]
+      );
+
+      // Calcula dias desde último serviço
+      const ultimoServico = await this.memoryDB['postgres'].getOne<any>(
+        `SELECT data_servico
+        FROM service_history
+        WHERE tutor_id = $1
+        ORDER BY data_servico DESC
+        LIMIT 1`,
+        [tutorId]
+      );
+
+      let diasDesdeUltimo: number | undefined;
+      if (ultimoServico?.data_servico) {
+        const diff = Date.now() - new Date(ultimoServico.data_servico).getTime();
+        diasDesdeUltimo = Math.floor(diff / (1000 * 60 * 60 * 24));
+      }
+
+      return {
+        totalServicos: tutor?.total_servicos || servicosAnteriores.length,
+        valorTotalGasto: parseFloat(tutor?.valor_total_gasto) || 0,
+        satisfacaoMedia: satisfacao?.media ? parseFloat(satisfacao.media) : undefined,
+        diasDesdeUltimoServico: diasDesdeUltimo,
+        conversoes: tutor?.conversoes || 0,
+        taxaConversao: parseFloat(tutor?.taxa_conversao) || 0
+      };
+    } catch (error) {
+      console.error('Erro ao calcular estatísticas:', error);
+      return {
+        totalServicos: servicosAnteriores.length,
+        valorTotalGasto: 0,
+        conversoes: 0,
+        taxaConversao: 0
+      };
+    }
   }
 
   /**

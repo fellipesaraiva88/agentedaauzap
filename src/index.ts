@@ -16,6 +16,7 @@ import { InstantAcknowledgment } from './services/InstantAcknowledgment';
 import { ConversationStateManager } from './services/ConversationStateManager';
 import { PostgreSQLClient, postgresClient } from './services/PostgreSQLClient';
 import { RedisClient, redisClient } from './services/RedisClient';
+import { initializeDocumentIngestion } from './services/DocumentIngestionManager';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -346,6 +347,15 @@ async function start() {
     } catch (error) {
       console.log('⚠️ Não foi possível verificar a sessão WAHA');
       console.log('💡 Certifique-se de que o WAHA está rodando e a sessão está configurada');
+    }
+
+    // Inicializa ingestion automática de documentos RAG
+    console.log('📚 Inicializando sistema RAG...');
+    try {
+      await initializeDocumentIngestion();
+      console.log('✅ Sistema RAG inicializado com sucesso');
+    } catch (error) {
+      console.warn('⚠️ Falha ao inicializar RAG (continuando sem documentos):', error);
     }
 
     // Inicia servidor Express
