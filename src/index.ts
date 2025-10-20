@@ -305,19 +305,20 @@ app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
         payload.contactName = contactName;
       }
 
-      // ⚡ NOVO: Envia resposta INSTANTÂNEA (antes de processar)
-      if (instantAck.shouldSendInstantReply(payload)) {
-        (async () => {
-          try {
-            const chatId = payload.from;
-            const profile = await memoryDB.getOrCreateProfile(chatId);
-            await instantAck.sendInstantReply(chatId, profile);
-          } catch (error) {
-            console.error('⚠️ Erro ao enviar resposta instantânea:', error);
-            // Não bloqueia fluxo se falhar
-          }
-        })();
-      }
+      // ⚡ InstantAck DESABILITADO (a pedido do usuário)
+      // Motivo: Não queremos mensagens automáticas tipo "perai que ja te atendo"
+      // if (instantAck.shouldSendInstantReply(payload)) {
+      //   (async () => {
+      //     try {
+      //       const chatId = payload.from;
+      //       const profile = await memoryDB.getOrCreateProfile(chatId);
+      //       await instantAck.sendInstantReply(chatId, profile);
+      //     } catch (error) {
+      //       console.error('⚠️ Erro ao enviar resposta instantânea:', error);
+      //       // Não bloqueia fluxo se falhar
+      //     }
+      //   })();
+      // }
 
       // Não aguarda para não bloquear o webhook
       messageProcessor.processMessage(payload).catch(error => {
