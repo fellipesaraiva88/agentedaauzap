@@ -1,0 +1,225 @@
+=============================================================================
+ANÁLISE DE SISTEMA AUZAP - ARQUIVOS ANALISADOS
+Data: 2025-10-20
+=============================================================================
+
+ESTATÍSTICAS GERAIS:
+- Total arquivos TypeScript: 60
+- Total linhas de código: ~15,000
+- Arquivos principais analisados: 20+
+- Componentes mapeados: 50+
+
+=============================================================================
+PROMPTS E COMUNICAÇÃO
+=============================================================================
+
+✅ src/prompts/marina-modes.ts (469 linhas)
+   - 12 arquétipos psicológicos com prompts específicos
+   - 5-7 táticas por modo
+   - 2-3 exemplos de resposta por modo
+   STATUS: Excelente
+
+✅ src/chains/marina-pipelines.ts (300+ linhas)
+   - 4 pipelines LCEL (Simples, Conversão, VIP, Completo)
+   - Prompts específicos para cada pipeline
+   STATUS: Otimizado
+
+✅ src/rag/RetrievalChain.ts (120+ linhas)
+   - RAG prompts com context injection
+   - Fallback responses
+   STATUS: Implementado
+
+✅ src/chains/quality-chain.ts (293 linhas)
+   - Quality validation prompts
+   - Regeneration feedback
+   STATUS: Preventivo
+
+✅ src/callbacks/TimingCallback.ts (150+ linhas)
+   - Timing e delay prompts
+   STATUS: Automático
+
+=============================================================================
+VALIDAÇÕES PRÉ-ENVIO
+=============================================================================
+
+✅ src/parsers/marina-response-schema.ts (197 linhas)
+   - Zod schemas para validação
+   - Tamanho, formatação, tone
+   STATUS: 5-300 caracteres validados
+
+✅ src/services/MessageAuditor.ts (200+ linhas)
+   - Detecta 8+ padrões robóticos
+   - Score humanidade 0-100
+   - Padrões: numeração, bullets, bold, formal phrases, etc
+   STATUS: 2/10 → 100 score
+
+✅ src/memory/StyleAwareMemory.ts (150+ linhas)
+   - Anti-repetição semântica
+   - Embedding similarity > 75%
+   - Cache últimas 10 respostas
+   STATUS: Implementado
+
+=============================================================================
+PERSISTÊNCIA DE DADOS
+=============================================================================
+
+✅ src/services/PostgreSQLClient.ts (300+ linhas)
+   - Connection pool, query methods
+   - Insert, update, delete, getOne, getMany
+   STATUS: Bem implementado
+
+✅ src/services/RedisClient.ts (250+ linhas)
+   - Cache layer (1-1h TTL)
+   - Set, get, delete, invalidate
+   STATUS: Bem implementado
+
+✅ src/services/CustomerMemoryDB.ts (300+ linhas)
+   - User profile cache e persistência
+   - Converter entre DB e object
+   STATUS: Bem implementado
+
+⚠️ Análises emocionais: NÃO PERSISTIDAS
+   - SentimentAnalyzer gera mas não salva
+   - EmotionalIntelligence gera mas não salva
+   - PersonalityProfiler salva parcialmente
+   STATUS: GAP CRÍTICO
+
+=============================================================================
+ANÁLISE DE QUALIDADE E FEEDBACK
+=============================================================================
+
+⚠️ Feedback Loop: PARCIALMENTE IMPLEMENTADO
+   - Console.log de erros (não persistido)
+   - Regeneração automática 1x
+   - Fallback manual
+   STATUS: Sem auditoria estruturada
+
+✅ Tempo de processamento rastreado (TimingCallback)
+⚠️ Métricas não persistidas em banco
+❌ Sem tabela response_audits
+❌ Sem dashboard de qualidade
+
+=============================================================================
+PERFORMANCE E CACHE
+=============================================================================
+
+✅ PostgreSQL:
+   - Índices em chat_id
+   - Parametrized queries
+   - Connection pool (max 20)
+
+✅ Redis:
+   - User profiles (1h TTL)
+   - Context (30min TTL)
+   - Messages (15min TTL)
+
+🔴 Gargalos identificados:
+   - LLM call: 1-3s
+   - RAG vector search: 300-800ms
+   - Embedding generation: 200-500ms
+   - Timing simulation: 1-5s
+
+=============================================================================
+SERVIÇOS PRINCIPAIS
+=============================================================================
+
+Análise Comportamental:
+✅ src/services/SentimentAnalyzer.ts - 5 sentimentos
+✅ src/services/EmotionalIntelligence.ts - 15 emoções
+✅ src/services/PersonalityDetector.ts - 12 dimensões
+✅ src/services/PersonalityProfiler.ts - 12 arquétipos
+
+Processamento:
+✅ src/services/MessageProcessor.ts - V1 legado
+✅ src/services/MessageProcessorV2.ts - LangChain V2 (novo)
+✅ src/services/MessageBuffer.ts - Concatenação
+✅ src/services/HumanDelay.ts - Delays realistas
+
+Contexto e Conversão:
+✅ src/services/ContextRetrievalService.ts
+✅ src/services/ConversionOptimizer.ts
+✅ src/services/FollowUpManager.ts
+✅ src/services/ImmediateFollowUpManager.ts
+
+Mídia:
+✅ src/services/AudioTranscriptionService.ts
+✅ src/services/PetPhotoAnalyzer.ts
+
+Integração:
+✅ src/services/WahaService.ts - WhatsApp
+✅ src/services/OpenAIService.ts - OpenAI API
+✅ src/services/AsaasPaymentService.ts - Pagamentos
+
+=============================================================================
+ARQUIVOS DE CONFIGURAÇÃO
+=============================================================================
+
+✅ src/config/petshop.config.ts - Config negócio
+✅ src/types/UserProfile.ts - Tipos principais
+✅ package.json - Dependencies
+
+=============================================================================
+ARQUIVOS DE SETUP/SCRIPTS
+=============================================================================
+
+✅ src/scripts/migrate-postgres.ts - Migrations
+✅ src/scripts/validate-schema.ts - Schema validation
+✅ src/scripts/setup-rag.ts - RAG setup
+✅ src/scripts/setup-rag-fallback.ts - RAG fallback
+
+=============================================================================
+DOCUMENTAÇÃO GERADA
+=============================================================================
+
+📊 SYSTEM_ANALYSIS_REPORT.md (569 linhas)
+   - Análise completa detalhada
+   - 5 seções principais
+   - 20+ problemas identificados
+   - 10+ oportunidades de melhoria
+
+📄 ANALYSIS_SUMMARY.md (1 página)
+   - Sumário executivo
+   - Top 5 insights
+   - Checklist de ação
+   - Roadmap 3 semanas
+
+=============================================================================
+RECOMENDAÇÕES PRINCIPAIS
+=============================================================================
+
+🔴 ALTA PRIORIDADE (2-3 semanas):
+1. P1: Persistir análises emocionais (1h)
+2. P2: Implementar feedback loop (3h)
+3. P3: Otimizar RAG (2.5h)
+4. P4: Async embeddings (30min)
+5. P7: Validação de cobertura (1.5h)
+
+IMPACTO ESPERADO:
+- Latência: -50% (3-5s → 1-2s)
+- Qualidade: +25%
+- Insights: +80%
+- Score: 6/10 → 7.5-8/10
+
+=============================================================================
+PRÓXIMOS PASSOS
+=============================================================================
+
+1. Revisar SYSTEM_ANALYSIS_REPORT.md (detalhado)
+2. Revisar ANALYSIS_SUMMARY.md (1 página)
+3. Executar roadmap semana 1
+4. Monitorar impacto de mudanças
+
+=============================================================================
+CONTATO / DÚVIDAS
+=============================================================================
+
+Análise realizada por Claude Code (claude-haiku-4-5-20251001)
+Data: 2025-10-20
+Local: /Users/saraiva/agentedaauzap
+
+Arquivos gerados:
+- SYSTEM_ANALYSIS_REPORT.md (569 linhas, análise completa)
+- ANALYSIS_SUMMARY.md (1 página, executive summary)
+- FILES_ANALYZED.txt (este arquivo)
+
+=============================================================================

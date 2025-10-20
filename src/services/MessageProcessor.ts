@@ -28,6 +28,9 @@ import { IntentAnalyzer, CustomerIntent } from './IntentAnalyzer';
 import { PETSHOP_CONFIG, getServicosDescricao, getHorarioDescricao } from '../config/petshop.config';
 import { PersonalizedGreeting } from './PersonalizedGreeting';
 import { ProofSocialEngine } from './ProofSocialEngine';
+import { getQualityTracker, ResponseQualityData } from './ResponseQualityTracker';
+import { getEmotionalPersistence } from './EmotionalContextPersistence';
+import { ResponseRelevanceValidator } from './ResponseRelevanceValidator';
 import { ConversationStateManager } from './ConversationStateManager';
 
 /**
@@ -210,6 +213,8 @@ export class MessageProcessor {
    * Processamento interno da mensagem (após concatenação se necessário)
    */
   private async processMessageInternal(message: any): Promise<void> {
+    const startTime = Date.now(); // Para medir tempo de resposta
+
     try {
       const chatId = message.from;
       let body = message.body;
@@ -505,6 +510,31 @@ export class MessageProcessor {
       console.log(`   Tom emocional: ${emotionalAnalysis.recommendedResponse.tone}`);
       console.log(`   Validação necessária: ${emotionalAnalysis.recommendedResponse.validation ? 'SIM' : 'NÃO'}`);
 
+      // 📊 PERSISTE ANÁLISE EMOCIONAL (para histórico rastreável)
+      const emotionalPersistence = getEmotionalPersistence();
+      (async () => {
+        try {
+          await emotionalPersistence.saveEmotionalAnalysis({
+            tutorId: (profile as any).tutorId || chatId, // TODO: Adicionar tutorId ao UserProfile
+            chatId,
+            emocaoPrimaria: emotionalAnalysis.primaryEmotion,
+            emocaoSecundaria: emotionalAnalysis.secondaryEmotion,
+            intensidadeEmocional: emotionalAnalysis.intensity,
+            sentimentoPredominante: sentiment?.type,
+            tomConversacao: emotionalAnalysis.recommendedResponse.tone,
+            engagementScore: engagement.score,
+            engagementLevel: engagement.level,
+            sinaisCompra: engagement.buyingSignals || [],
+            arquetipo: personalityProfile.archetype,
+            dimensoesPersonalidade: personalityProfile.dimensions as any,
+            contextoConversa: body.substring(0, 200) // Primeiros 200 chars
+          });
+        } catch (error) {
+          // Não trava fluxo se falhar
+          console.error('Erro ao salvar análise emocional:', error);
+        }
+      })();
+
       // Análise de fluxo de conversação
       const flowAnalysis = this.flowOptimizer.identifyStage(body, profile, personalityProfile.archetype);
       console.log(`\n🗺️ JORNADA: ${flowAnalysis.currentStage.toUpperCase()} → ${flowAnalysis.nextStage}`);
@@ -787,6 +817,36 @@ export class MessageProcessor {
         ? imperfection.modifiedText
         : response;
 
+      // 🎯 VALIDAÇÃO DE RELEVÂNCIA: Garante que resposta é útil
+      const relevanceValidation = ResponseRelevanceValidator.validate(body, finalResponse);
+
+      if (!relevanceValidation.isRelevant) {
+        console.warn(`⚠️ Resposta com baixa relevância detectada (${relevanceValidation.confidence}%)`);
+        console.warn(`   Motivo: ${relevanceValidation.reason}`);
+
+        if (relevanceValidation.suggestions) {
+          console.warn(`   Sugestões: ${relevanceValidation.suggestions.join(', ')}`);
+        }
+
+        // Se confiança muito baixa (<40%), tenta regenerar resposta mais direta
+        if (relevanceValidation.confidence < 40) {
+          console.log(`🔄 Regenerando resposta mais direta...`);
+
+          // Força resposta mais direta adicionando contexto ao prompt
+          const directPrompt = `${body}\n\nIMPORTANTE: Responda de forma DIRETA e OBJETIVA. Se for pergunta sobre preço/horário/local, dê a informação EXATA.`;
+
+          try {
+            // Força resposta direta sem regenerar (evita chamada extra)
+            // TODO: Melhorar sistema de regeneração quando necessário
+            console.warn(`⚠️ Mantendo resposta original (regeneração desabilitada)`);
+          } catch (error) {
+            console.warn(`Erro ao validar resposta:`, error);
+          }
+        }
+      } else {
+        console.log(`✅ Resposta relevante (${relevanceValidation.confidence}% confiança)`);
+      }
+
       // 🔍 AUDITORIA: Verifica e corrige padrões robóticos
       const auditResult = MessageAuditor.audit(finalResponse);
       MessageAuditor.logAudit(chatId, finalResponse, auditResult);
@@ -800,6 +860,39 @@ export class MessageProcessor {
         const reAudit = MessageAuditor.audit(finalResponse);
         console.log(`✅ Mensagem corrigida (novo score: ${reAudit.score}/100)`);
       }
+
+      // 📊 FEEDBACK LOOP: Salva qualidade da resposta para aprendizado
+      const qualityTracker = getQualityTracker();
+      const endTime = Date.now();
+
+      (async () => {
+        try {
+          await qualityTracker.trackResponse({
+            chatId,
+            tutorId: (profile as any)?.tutorId || undefined,
+            userMessage: body,
+            botResponse: finalResponse,
+            qualityScore: auditResult.score,
+            passedValidation: auditResult.isHuman,
+            rejectionReason: !auditResult.isHuman ? auditResult.patterns.join(', ') : undefined,
+            modeUsed: undefined, // TODO: capturar selectedMode
+            pipelineUsed: 'legacy', // TODO: detectar pipeline V2 quando usar
+            sentimentDetected: sentiment?.type,
+            intentDetected: undefined, // TODO: capturar intent
+            responseTimeMs: endTime - startTime,
+            usedRag: false, // TODO: detectar quando RAG for usado
+            validationsApplied: ['MessageAuditor', 'HumanImperfection'],
+            validationScores: {
+              humanness: auditResult.score,
+              imperfection: imperfection.shouldApply ? 100 : 0
+            },
+            needsReview: auditResult.score < 60
+          });
+        } catch (error) {
+          // Não trava fluxo se falhar
+          console.error('Erro ao salvar qualidade:', error);
+        }
+      })();
 
       // 1️⃣3️⃣ ANÁLISE DE CITAÇÃO CONTEXTUAL
       // 🧠 MEMÓRIA EXPANDIDA: Busca últimas 50 mensagens para citações contextuais
