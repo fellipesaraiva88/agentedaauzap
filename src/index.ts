@@ -94,10 +94,38 @@ let dbPool: any = undefined;
 if (postgresClient.isPostgresConnected()) {
   console.log('🐘 Testando conexão PostgreSQL...');
   dbPool = postgresClient.getPool(); // 🆕 Obter pool para usar no MessageProcessor
-  postgresClient.testConnection().then(success => {
+  postgresClient.testConnection().then(async success => {
     if (success) {
       console.log('✅ PostgreSQL: Conexão verificada e funcionando!');
-      console.log('📅 Sistema de Agendamentos disponível!\n');
+      console.log('📅 Sistema de Agendamentos disponível!');
+
+      // Auto-run critical migrations
+      try {
+        console.log('🔄 Executando migrations críticas...');
+        const fs = require('fs');
+        const path = require('path');
+
+        const migrations = ['006_create_whatsapp_sessions.sql', '007_create_users_auth.sql'];
+        for (const migration of migrations) {
+          try {
+            const migrationPath = path.join(__dirname, '../migrations', migration);
+            if (fs.existsSync(migrationPath)) {
+              const sql = fs.readFileSync(migrationPath, 'utf8');
+              await dbPool.query(sql);
+              console.log(`✅ Migration ${migration} executada`);
+            }
+          } catch (error: any) {
+            if (error.message.includes('already exists')) {
+              console.log(`⚠️  Migration ${migration} já executada`);
+            } else {
+              console.warn(`⚠️  Aviso em ${migration}:`, error.message);
+            }
+          }
+        }
+        console.log('✅ Migrations verificadas!\n');
+      } catch (error: any) {
+        console.warn('⚠️  Aviso ao executar migrations:', error.message, '\n');
+      }
     } else {
       console.error('❌ PostgreSQL: Teste falhou - verifique configuração\n');
     }

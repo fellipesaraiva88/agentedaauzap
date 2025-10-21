@@ -13,6 +13,7 @@
     "migrate:force": "ts-node src/scripts/migrate-postgres.ts --force",
     "migrate": "ts-node src/scripts/run-migration.ts",
     "migrate:005": "ts-node src/scripts/run-migration.ts 005",
+    "migrate:remote": "ts-node src/scripts/run-remote-migrations.ts",
     "validate:schema": "ts-node src/scripts/validate-schema.ts",
     "test:appointments": "ts-node src/test/appointment-test.ts",
     "cron:reminders": "ts-node src/cron/reminder-scheduler.ts",
