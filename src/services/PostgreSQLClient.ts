@@ -41,9 +41,11 @@ export class PostgreSQLClient {
     try {
       this.pool = new Pool({
         connectionString: databaseUrl,
-        max: 20, // máximo de conexões no pool
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
+        max: 10, // máximo de conexões no pool (reduzido para evitar sobrecarga)
+        idleTimeoutMillis: 60000, // 60s - aumentado para queries longas
+        connectionTimeoutMillis: 30000, // 30s - aumentado timeout de conexão
+        statement_timeout: 60000, // 60s - timeout para queries longas
+        query_timeout: 60000, // 60s - timeout global de query
         ssl: {
           rejectUnauthorized: false // Necessário para Render e outros serviços cloud
         }
