@@ -44,7 +44,7 @@ export default function WhatsAppPage() {
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['whatsapp-sessions'],
     queryFn: () => getSessions(),
-    refetchInterval: 5000, // Poll a cada 5 segundos
+    refetchInterval: 5000,
   })
 
   const startSessionMutation = useMutation({
@@ -103,42 +103,39 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <div className=\"min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6\">
-      <div className=\"mx-auto max-w-7xl space-y-8\">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 p-6">
+      <div className="mx-auto max-w-7xl space-y-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className=\"space-y-2\"
+          className="space-y-2"
         >
-          <Display variant=\"gradient\" className=\"text-4xl\">
-            <Smartphone className=\"mr-3 inline h-10 w-10\" />
+          <Display variant="gradient" className="text-4xl">
+            <Smartphone className="mr-3 inline h-10 w-10" />
             Gerenciamento WhatsApp
           </Display>
-          <Body variant=\"muted\" size=\"lg\">
+          <Body variant="muted" size="lg">
             Configure e gerencie suas sessões WhatsApp Business via WAHA
           </Body>
         </motion.div>
 
-        {/* Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Button size=\"lg\" onClick={() => setCreateModalOpen(true)}>
-            <Plus className=\"mr-2 h-5 w-5\" />
+          <Button size="lg" onClick={() => setCreateModalOpen(true)}>
+            <Plus className="mr-2 h-5 w-5" />
             Nova Sessão WhatsApp
           </Button>
         </motion.div>
 
-        {/* Sessions Grid */}
         {isLoading ? (
-          <div className=\"grid gap-6 md:grid-cols-2 lg:grid-cols-3\">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className=\"animate-pulse\">
-                <CardContent className=\"p-6\">
-                  <div className=\"h-40 rounded bg-muted\" />
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-40 rounded bg-muted" />
                 </CardContent>
               </Card>
             ))}
@@ -149,24 +146,24 @@ export default function WhatsAppPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className=\"border-2 border-dashed\">
-              <CardContent className=\"flex flex-col items-center justify-center p-12 text-center\">
-                <Smartphone className=\"mb-4 h-16 w-16 text-muted-foreground\" />
-                <Heading size=\"lg\" className=\"mb-2\">
+            <Card className="border-2 border-dashed">
+              <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                <Smartphone className="mb-4 h-16 w-16 text-muted-foreground" />
+                <Heading size="lg" className="mb-2">
                   Nenhuma sessão configurada
                 </Heading>
-                <Body variant=\"muted\" className=\"mb-6\">
+                <Body variant="muted" className="mb-6">
                   Crie sua primeira sessão WhatsApp para começar a automatizar atendimentos
                 </Body>
                 <Button onClick={() => setCreateModalOpen(true)}>
-                  <Plus className=\"mr-2 h-4 w-4\" />
+                  <Plus className="mr-2 h-4 w-4" />
                   Criar Primeira Sessão
                 </Button>
               </CardContent>
             </Card>
           </motion.div>
         ) : (
-          <div className=\"grid gap-6 md:grid-cols-2 lg:grid-cols-3\">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {sessions.map((session, index) => (
               <motion.div
                 key={session.id}
@@ -187,7 +184,6 @@ export default function WhatsAppPage() {
         )}
       </div>
 
-      {/* Modals */}
       <CreateSessionModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
