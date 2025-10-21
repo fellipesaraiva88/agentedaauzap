@@ -9,6 +9,29 @@ export const api = axios.create({
   },
 })
 
+// Types
+export interface Appointment {
+  id: number
+  petNome: string
+  tutorNome: string
+  serviceName: string
+  dataAgendamento: string
+  horaAgendamento: string
+  status: string
+  preco: number
+  tutorTelefone?: string
+  observacoes?: string
+  serviceId?: number
+}
+
+export interface Service {
+  id: number
+  nome: string
+  descricao?: string
+  preco: number
+  duracao?: number
+}
+
 // Dashboard APIs
 export const dashboardApi = {
   getStats: async (companyId: number = 1) => {
@@ -84,6 +107,67 @@ export const whatsappApi = {
       phoneNumber,
       message,
     })
+    return response.data
+  },
+}
+
+// Appointments APIs
+export const appointmentsApi = {
+  list: async (params?: { status?: string; serviceId?: number }) => {
+    const response = await api.get('/appointments', { params })
+    return response.data
+  },
+
+  get: async (id: number) => {
+    const response = await api.get(`/appointments/${id}`)
+    return response.data
+  },
+
+  create: async (data: Partial<Appointment>) => {
+    const response = await api.post('/appointments', data)
+    return response.data
+  },
+
+  update: async (id: number, data: Partial<Appointment>) => {
+    const response = await api.put(`/appointments/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/appointments/${id}`)
+    return response.data
+  },
+
+  updateStatus: async (id: number, status: string) => {
+    const response = await api.patch(`/appointments/${id}/status`, { status })
+    return response.data
+  },
+}
+
+// Services APIs
+export const servicesApi = {
+  list: async () => {
+    const response = await api.get('/services')
+    return response.data
+  },
+
+  get: async (id: number) => {
+    const response = await api.get(`/services/${id}`)
+    return response.data
+  },
+
+  create: async (data: Partial<Service>) => {
+    const response = await api.post('/services', data)
+    return response.data
+  },
+
+  update: async (id: number, data: Partial<Service>) => {
+    const response = await api.put(`/services/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/services/${id}`)
     return response.data
   },
 }
