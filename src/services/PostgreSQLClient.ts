@@ -39,15 +39,19 @@ export class PostgreSQLClient {
     }
 
     try {
+      // Detectar se SSL está desabilitado na connection string
+      const sslDisabled = databaseUrl.includes('sslmode=disable');
+
       this.pool = new Pool({
         connectionString: databaseUrl,
-        max: 5, // Reduzido de 10 para 5 (Supabase free tier tem limite)
+        max: 5, // Reduzido de 10 para 5 para evitar sobrecarga
         min: 1, // Manter sempre 1 conexão ativa
         idleTimeoutMillis: 30000, // 30s - reduzido para liberar conexões idle mais rápido
         connectionTimeoutMillis: 10000, // 10s - timeout de conexão mais curto
         allowExitOnIdle: false, // Não permitir que o pool termine quando idle
-        ssl: {
-          rejectUnauthorized: false // Necessário para Render e outros serviços cloud
+        // SSL: desabilitar se sslmode=disable, caso contrário usar com rejectUnauthorized: false
+        ssl: sslDisabled ? false : {
+          rejectUnauthorized: false
         },
         // Keep-alive para manter conexões ativas
         keepAlive: true,
