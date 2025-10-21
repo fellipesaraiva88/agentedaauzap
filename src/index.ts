@@ -38,11 +38,15 @@ const ASAAS_ENVIRONMENT = (process.env.ASAAS_ENVIRONMENT as 'sandbox' | 'product
 // 🦜 Configuração LangChain V2 (nova arquitetura)
 const USE_LANGCHAIN_V2 = process.env.USE_LANGCHAIN_V2 === 'true';
 
-// Validações
-if (!WAHA_API_URL || !WAHA_API_KEY || !OPENAI_API_KEY || !GROQ_API_KEY) {
-  console.error('❌ Erro: Variáveis de ambiente não configuradas!');
-  console.error('Por favor, configure WAHA_API_URL, WAHA_API_KEY, OPENAI_API_KEY e GROQ_API_KEY no arquivo .env');
-  process.exit(1);
+// Validações (apenas warnings em produção para permitir deploy)
+if (!WAHA_API_URL || !WAHA_API_KEY) {
+  console.warn('⚠️ WAHA não configurado - funcionalidades de WhatsApp desabilitadas');
+  console.warn('💡 Configure WAHA_API_URL e WAHA_API_KEY nas variáveis de ambiente');
+}
+
+if (!OPENAI_API_KEY && !GROQ_API_KEY) {
+  console.warn('⚠️ Nenhuma API de IA configurada - funcionalidades de IA desabilitadas');
+  console.warn('💡 Configure OPENAI_API_KEY ou GROQ_API_KEY nas variáveis de ambiente');
 }
 
 // Valida configuração de PIX apenas se habilitado
