@@ -196,8 +196,8 @@ export function createAuthRoutes(db: Pool) {
 
       // Buscar usuário
       const result = await db.query(
-        `SELECT u.id, u.email, u.password_hash, u.full_name as name, u.company_name, u.phone, u.role, u.company_id,
-                c.nome as company_name_full, c.ativo as company_active
+        `SELECT u.id, u.email, u.password_hash, u.full_name as name, u.phone, u.role, u.company_id,
+                c.nome as company_name, c.ativo as company_active
          FROM users u
          LEFT JOIN companies c ON u.company_id = c.id
          WHERE u.email = $1`,
@@ -370,8 +370,8 @@ export function createAuthRoutes(db: Pool) {
 
       // Buscar informações atualizadas do usuário
       const result = await db.query(
-        `SELECT u.id, u.email, u.full_name as name, u.company_name, u.phone, u.role, u.company_id, u.created_at,
-                c.nome as company_name_full, c.slug as company_slug
+        `SELECT u.id, u.email, u.full_name as name, u.phone, u.role, u.company_id, u.created_at,
+                c.nome as company_name, c.slug as company_slug
          FROM users u
          LEFT JOIN companies c ON u.company_id = c.id
          WHERE u.id = $1`,
