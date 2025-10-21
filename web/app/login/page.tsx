@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,23 +12,30 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/hooks/useAuth'
 
-export default function LoginPage() {
+// Componente que usa searchParams - precisa estar dentro de Suspense
+function LoginRedirect() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login, isAuthenticated } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
+  const { isAuthenticated } = useAuth()
 
-  // Security: Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       const from = searchParams.get('from') || '/dashboard'
       router.push(from)
     }
   }, [isAuthenticated, router, searchParams])
+
+  return null
+}
+
+function LoginForm() {
+  const router = useRouter()
+  const { login } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -219,5 +226,17 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+  )
+}
+
+// Página principal com Suspense boundary
+export default function LoginPage() {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <LoginRedirect />
+      </Suspense>
+      <LoginForm />
+    </>
   )
 }
