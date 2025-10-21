@@ -189,21 +189,25 @@ export class QueryOptimizer {
     this.queryBatches.delete(batchKey);
     clearTimeout(batch.timeout);
 
+    const pool = this.postgres.getPool();
+    if (!pool) {
+      batch.queries.forEach(q => {
+        q.rejecter(new Error('Database not connected'));
+      });
+      return;
+    }
+
     try {
-      // Executar em transação para melhor performance
-      await this.postgres.transaction(async (client) => {
-        const results = await Promise.all(
-          batch.queries.map(q =>
-            client.query(q.sql, q.params)
-          )
-        );
+      // Executar queries em paralelo (batch não precisa de transação)
+      const results = await Promise.all(
+        batch.queries.map(q =>
+          pool.query(q.sql, q.params)
+        )
+      );
 
-        // Resolver promises
-        batch.queries.forEach((q, i) => {
-          q.resolver(results[i]);
-        });
-
-        return results;
+      // Resolver promises
+      batch.queries.forEach((q, i) => {
+        q.resolver(results[i]);
       });
     } catch (error) {
       // Rejeitar todas as promises

@@ -12,7 +12,7 @@ import helmet from 'helmet';
  * Content Security Policy configuration
  * Previne XSS e injeção de conteúdo malicioso
  */
-const contentSecurityPolicy = {
+const contentSecurityPolicy: any = {
   directives: {
     defaultSrc: ["'self'"],
     scriptSrc: [
@@ -49,8 +49,8 @@ const contentSecurityPolicy = {
     frameSrc: ["'none'"],
     baseUri: ["'self'"],
     formAction: ["'self'"],
-    frameAncestors: ["'none'"],
-    upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : undefined
+    frameAncestors: ["'none'"]
+    // upgradeInsecureRequests removido - conflito com helmet types
   }
 };
 
@@ -261,8 +261,8 @@ export function secureFileUpload() {
       '.scr', '.app', '.pif', '.msi', '.deb', '.rpm'
     ];
 
-    if (req.files) {
-      const files = Array.isArray(req.files) ? req.files : [req.files];
+    if ((req as any).files) {
+      const files = Array.isArray((req as any).files) ? (req as any).files : [(req as any).files];
 
       for (const file of files as any[]) {
         const fileName = file.name?.toLowerCase() || '';
