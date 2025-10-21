@@ -22,7 +22,7 @@ router.get('/progress', requireAuth, async (req: Request, res: Response) => {
     // Buscar progresso
     const progress = await postgresClient.getOne<{
       id: number;
-      user_id: number;
+      user_id: string;
       company_id: number;
       current_step: number;
       completed: boolean;
@@ -31,14 +31,14 @@ router.get('/progress', requireAuth, async (req: Request, res: Response) => {
       updated_at: Date;
       completed_at: Date | null;
     }>(
-      `SELECT * FROM onboarding_progress 
+      `SELECT * FROM user_onboarding_progress
        WHERE user_id = $1 AND company_id = $2`,
       [userId, companyId]
     );
 
     // Se não existe, criar um novo
     if (!progress) {
-      const newProgress = await postgresClient.insert('onboarding_progress', {
+      const newProgress = await postgresClient.insert('user_onboarding_progress', {
         user_id: userId,
         company_id: companyId,
         current_step: 1,
@@ -103,7 +103,7 @@ router.put('/progress', requireAuth, async (req: Request, res: Response) => {
 
     // Buscar progresso existente
     const existing = await postgresClient.getOne(
-      `SELECT id FROM onboarding_progress 
+      `SELECT id FROM user_onboarding_progress
        WHERE user_id = $1 AND company_id = $2`,
       [userId, companyId]
     );
@@ -117,13 +117,13 @@ router.put('/progress', requireAuth, async (req: Request, res: Response) => {
       if (data !== undefined) updateData.data = data;
 
       updated = await postgresClient.update(
-        'onboarding_progress',
+        'user_onboarding_progress',
         updateData,
         { id: existing.id }
       );
     } else {
       // Criar novo
-      updated = await postgresClient.insert('onboarding_progress', {
+      updated = await postgresClient.insert('user_onboarding_progress', {
         user_id: userId,
         company_id: companyId,
         current_step: currentStep || 1,
@@ -170,7 +170,7 @@ router.post('/complete', requireAuth, async (req: Request, res: Response) => {
 
     // Buscar progresso
     const existing = await postgresClient.getOne<{ id: number }>(
-      `SELECT id FROM onboarding_progress 
+      `SELECT id FROM user_onboarding_progress
        WHERE user_id = $1 AND company_id = $2`,
       [userId, companyId]
     );
@@ -183,7 +183,7 @@ router.post('/complete', requireAuth, async (req: Request, res: Response) => {
 
     // Marcar como completo
     const completed = await postgresClient.update(
-      'onboarding_progress',
+      'user_onboarding_progress',
       {
         completed: true,
         current_step: 9,
@@ -230,7 +230,7 @@ router.delete('/progress', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Deletar progresso
-    await postgresClient.delete('onboarding_progress', {
+    await postgresClient.delete('user_onboarding_progress', {
       user_id: userId,
       company_id: companyId
     });
