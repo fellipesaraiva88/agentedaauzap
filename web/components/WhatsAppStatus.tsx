@@ -9,6 +9,7 @@ import { MessageCircle, Wifi, WifiOff, Settings } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { whatsappApi } from '@/lib/api'
 
 interface WhatsAppStatusData {
   connected: boolean
@@ -18,15 +19,39 @@ interface WhatsAppStatusData {
 }
 
 async function getWhatsAppStatus(): Promise<WhatsAppStatusData> {
-  // TODO: Conectar com a API WAHA real
-  // const response = await fetch('/api/whatsapp/status')
-  // return response.json()
+  try {
+    const sessions = await whatsappApi.getSessions()
 
-  // Mock para desenvolvimento
-  return {
-    connected: true,
-    session: 'default',
-    phone: '+55 11 99999-9999'
+    // Busca primeira sessão ativa
+    const activeSession = sessions.find((s: any) => s.status === 'WORKING' || s.status === 'connected')
+
+    if (activeSession) {
+      return {
+        connected: true,
+        session: activeSession.name,
+        phone: activeSession.me?.id || activeSession.name
+      }
+    }
+
+    // Se tem sessão mas não está conectada
+    if (sessions.length > 0) {
+      return {
+        connected: false,
+        session: sessions[0].name,
+      }
+    }
+
+    // Nenhuma sessão configurada
+    return {
+      connected: false,
+      session: 'Não configurado',
+    }
+  } catch (error) {
+    console.error('Erro ao buscar status do WhatsApp:', error)
+    return {
+      connected: false,
+      session: 'Erro ao conectar',
+    }
   }
 }
 

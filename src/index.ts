@@ -316,6 +316,62 @@ if (postgresClient.isPostgresConnected()) {
     whatsappRouter
   );
   console.log('✅ WhatsApp API routes registered (protected)');
+
+  /**
+   * Appointments API Routes
+   * Requires: Authentication + Tenant Context
+   */
+  const { createAppointmentsRoutes } = require('./api/appointments-routes');
+  const appointmentsRouter = createAppointmentsRoutes(db);
+
+  app.use('/api/appointments',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    appointmentsRouter
+  );
+  console.log('✅ Appointments API routes registered (protected)');
+
+  /**
+   * Conversations API Routes
+   * Requires: Authentication + Tenant Context
+   */
+  const { createConversationsRoutes } = require('./api/conversations-routes');
+  const conversationsRouter = createConversationsRoutes(db);
+
+  app.use('/api/conversations',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    conversationsRouter
+  );
+  console.log('✅ Conversations API routes registered (protected)');
+
+  /**
+   * Settings API Routes
+   * Requires: Authentication + Tenant Context
+   */
+  const { createSettingsRoutes } = require('./api/settings-routes');
+  const settingsRouter = createSettingsRoutes(db);
+
+  app.use('/api/settings',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    settingsRouter
+  );
+  console.log('✅ Settings API routes registered (protected)');
+
+  /**
+   * Companies API Route (Public endpoint for listing companies)
+   */
+  app.get('/api/companies', async (req, res) => {
+    try {
+      const result = await db.query('SELECT id, name, slug FROM companies ORDER BY name');
+      res.json({ success: true, data: result.rows });
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch companies' });
+    }
+  });
+  console.log('✅ Companies API endpoint registered (public)');
 }
 
 /**

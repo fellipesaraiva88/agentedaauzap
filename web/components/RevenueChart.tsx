@@ -6,6 +6,7 @@ import { Heading, Body } from './ui/typography'
 import { DollarSign } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { dashboardApi } from '@/lib/api'
 
 interface RevenueDataPoint {
   time: string
@@ -13,20 +14,13 @@ interface RevenueDataPoint {
 }
 
 async function getRevenueTimeline(): Promise<RevenueDataPoint[]> {
-  // TODO: Conectar com API real
-  const response = await fetch('/api/dashboard/revenue-timeline')
-  if (!response.ok) {
-    // Mock data para desenvolvimento
-    return [
-      { time: '08:00', value: 150 },
-      { time: '10:00', value: 420 },
-      { time: '12:00', value: 680 },
-      { time: '14:00', value: 920 },
-      { time: '16:00', value: 1250 },
-      { time: '18:00', value: 1450 },
-    ]
+  try {
+    const data = await dashboardApi.getRevenueTimeline(1, 7)
+    return data.timeline || []
+  } catch (error) {
+    console.error('Erro ao buscar timeline de receita:', error)
+    return []
   }
-  return response.json()
 }
 
 export function RevenueChart() {

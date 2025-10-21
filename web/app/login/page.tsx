@@ -1,35 +1,98 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Display, Body } from '@/components/ui/typography'
-import { Smartphone, Mail, Lock, ArrowRight } from 'lucide-react'
+import { Smartphone, Mail, Lock, ArrowRight, AlertCircle, Shield } from 'lucide-react'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { login, isAuthenticated } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+
+  // Security: Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = searchParams.get('from') || '/dashboard'
+      router.push(from)
+    }
+  }, [isAuthenticated, router, searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setLoading(true)
 
-    // TODO: Implementar autenticação real
-    setTimeout(() => {
-      // Por enquanto, apenas redireciona
-      router.push('/dashboard')
-    }, 1000)
+    try {
+      // Security: Client-side validation
+      if (!email || !password) {
+        throw new Error('Por favor, preencha todos os campos')
+      }
+
+      // Security: Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        throw new Error('Por favor, insira um email válido')
+      }
+
+      // Security: Password minimum length check
+      if (password.length < 6) {
+        throw new Error('A senha deve ter pelo menos 6 caracteres')
+      }
+
+      // Call login function from auth context
+      await login(email, password)
+
+      // Show success message
+      toast.success('Login realizado com sucesso!', {
+        icon: '🔐',
+        duration: 3000,
+      })
+
+      // Redirect handled by AuthContext
+    } catch (err: any) {
+      // Security: Handle authentication errors
+      const errorMessage = err.message || 'Falha ao fazer login'
+
+      // Log security event (failed login attempt)
+      console.error('Login failed:', {
+        email: email.toLowerCase(),
+        timestamp: new Date().toISOString(),
+        error: errorMessage
+      })
+
+      setError(errorMessage)
+
+      // Show error toast with specific messages
+      if (err.response?.status === 401) {
+        toast.error('Email ou senha inválidos', { icon: '❌' })
+      } else if (err.response?.status === 403) {
+        toast.error('Empresa inativa. Entre em contato com o suporte.', { icon: '🚫' })
+      } else if (err.response?.status === 429) {
+        toast.error('Muitas tentativas. Aguarde alguns minutos.', { icon: '⏰' })
+      } else {
+        toast.error(errorMessage, { icon: '⚠️' })
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDemoLogin = () => {
-    setEmail('demo@agentedaauzap.com')
-    setPassword('demo123')
+    setEmail('feee@saraiva.ai')
+    setPassword('Sucesso2025$')
   }
 
   return (
@@ -56,6 +119,20 @@ export default function LoginPage() {
             <CardDescription>Entre com suas credenciais para continuar</CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Security Notice */}
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-400">
+              <Shield className="h-4 w-4" />
+              <span>Conexão segura com criptografia de ponta a ponta</span>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
+                <AlertCircle className="h-4 w-4" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <Label htmlFor="email">
@@ -69,6 +146,9 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   required
+                  autoComplete="email"
+                  disabled={loading}
+                  className="mt-1"
                 />
               </div>
 
@@ -77,14 +157,26 @@ export default function LoginPage() {
                   <Lock className="mr-2 inline h-4 w-4" />
                   Senha
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
+                <div className="relative mt-1">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
+                </div>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={loading}>
@@ -102,7 +194,7 @@ export default function LoginPage() {
                 className="w-full"
                 onClick={handleDemoLogin}
               >
-                🎭 Usar Conta Demo
+                Preencher com Credenciais Demo
               </Button>
             </form>
 

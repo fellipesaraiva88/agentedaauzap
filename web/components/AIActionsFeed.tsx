@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { dashboardApi } from '@/lib/api'
 
 interface AIAction {
   id: string
@@ -19,46 +20,13 @@ interface AIAction {
 }
 
 async function getAIActions(): Promise<AIAction[]> {
-  // TODO: Conectar com API real
-  const response = await fetch('/api/dashboard/actions')
-  if (!response.ok) {
-    // Mock data para desenvolvimento
-    return [
-      {
-        id: '1',
-        type: 'booking',
-        title: 'Agendamento Confirmado',
-        subtitle: 'Banho e Tosa - Rex',
-        highlight: 'R$ 120,00',
-        created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '2',
-        type: 'message',
-        title: 'Mensagem Respondida',
-        subtitle: 'Dúvida sobre vacinação',
-        highlight: 'Automático',
-        created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '3',
-        type: 'client',
-        title: 'Cliente Cadastrado',
-        subtitle: 'Maria Silva - Thor',
-        highlight: 'Novo',
-        created_at: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '4',
-        type: 'sale',
-        title: 'Venda Fechada',
-        subtitle: 'Pacote 3 banhos',
-        highlight: 'R$ 270,00',
-        created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-      },
-    ]
+  try {
+    const data = await dashboardApi.getActions(1, 10)
+    return data.actions || []
+  } catch (error) {
+    console.error('Erro ao buscar ações da IA:', error)
+    return []
   }
-  return response.json()
 }
 
 const actionConfig = {

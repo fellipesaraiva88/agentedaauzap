@@ -56,13 +56,13 @@ export default function ClientsPage() {
     clientsMap.set(appointment.tutorNome, existing)
   })
 
-  const clients = Array.from(clientsMap.values()).filter((client) =>
+  const clients = Array.from(clientsMap.values()).filter((client: ClientData) =>
     client.tutorNome.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const totalClientes = clients.length
-  const totalPets = clients.reduce((acc, client) => acc + client.pets.size, 0)
-  const receitaTotal = clients.reduce((acc, client) => acc + client.valorTotal, 0)
+  const totalPets = clients.reduce((acc: number, client: ClientData) => acc + client.pets.size, 0)
+  const receitaTotal = clients.reduce((acc: number, client: ClientData) => acc + client.valorTotal, 0)
 
   return (
     <div className="space-y-6">
@@ -140,13 +140,13 @@ export default function ClientsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  clients.map((client) => (
+                  clients.map((client: ClientData) => (
                     <TableRow key={client.tutorNome}>
                       <TableCell className="font-medium">{client.tutorNome}</TableCell>
                       <TableCell>{client.tutorTelefone || '-'}</TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
-                          {Array.from(client.pets).map((pet) => (
+                          {Array.from(client.pets).map((pet: string) => (
                             <Badge key={pet} variant="outline">
                               {pet}
                             </Badge>

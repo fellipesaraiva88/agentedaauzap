@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { appointmentsApi, dashboardApi } from '@/lib/api'
+import { appointmentsApi, dashboardApi, type Appointment } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Users, AlertCircle } from 'lucide-react'
@@ -25,7 +25,7 @@ export default function StatsPage() {
     ? Math.round((stats.data.cancelados / stats.data.total) * 100)
     : 0
 
-  const servicosMaisPopulares = appointmentsData?.data.reduce((acc, appointment) => {
+  const servicosMaisPopulares = appointmentsData?.data.reduce((acc: Record<string, number>, appointment: Appointment) => {
     acc[appointment.serviceName] = (acc[appointment.serviceName] || 0) + 1
     return acc
   }, {} as Record<string, number>)

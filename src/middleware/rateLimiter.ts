@@ -44,12 +44,7 @@ export const loginRateLimiter = rateLimit({
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  // Key por IP + email (para bloquear tentativas no mesmo email)
-  keyGenerator: (req) => {
-    const email = req.body?.email || 'unknown';
-    return `${req.ip}-${email}`;
-  }
+  legacyHeaders: false
 });
 
 /**
@@ -81,14 +76,7 @@ export const apiRateLimiter = rateLimit({
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  // Key por userId se autenticado, senão por IP
-  keyGenerator: (req: any) => {
-    if (req.user?.id) {
-      return `user-${req.user.id}`;
-    }
-    return req.ip;
-  }
+  legacyHeaders: false
 });
 
 /**
@@ -127,11 +115,7 @@ export const passwordResetRateLimiter = rateLimit({
     retryAfter: '1 hour'
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    const email = req.body?.email || 'unknown';
-    return `${req.ip}-${email}`;
-  }
+  legacyHeaders: false
 });
 
 /**

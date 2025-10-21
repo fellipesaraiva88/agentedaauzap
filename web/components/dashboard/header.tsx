@@ -3,6 +3,8 @@
 import { Bell, Search, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CompanySelectorCompact } from '@/components/CompanySelector'
+import { Separator } from '@/components/ui/separator'
 
 export function Header() {
   return (
@@ -20,6 +22,8 @@ export function Header() {
         </form>
       </div>
       <div className="flex items-center gap-4">
+        <CompanySelectorCompact />
+        <Separator orientation="vertical" className="h-6" />
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />

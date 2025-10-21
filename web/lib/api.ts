@@ -9,7 +9,68 @@ export const api = axios.create({
   },
 })
 
+// Multitenancy interceptor - adds companyId to all requests
+api.interceptors.request.use(
+  (config) => {
+    // Get current company ID from localStorage
+    const companyId = localStorage.getItem('selectedCompanyId')
+
+    // Add authorization token if exists
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
+    // Add companyId to query params if exists
+    if (companyId) {
+      // Parse existing URL to properly handle query params
+      const separator = config.url?.includes('?') ? '&' : '?'
+
+      // Don't add companyId to auth endpoints or if already present
+      const skipEndpoints = ['/auth', '/login', '/register', '/companies']
+      const shouldSkip = skipEndpoints.some(endpoint => config.url?.includes(endpoint))
+      const hasCompanyId = config.url?.includes('companyId=')
+
+      if (!shouldSkip && !hasCompanyId) {
+        config.url = `${config.url}${separator}companyId=${companyId}`
+      }
+    }
+
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      // Clear auth data and redirect to login
+      localStorage.removeItem('token')
+      localStorage.removeItem('selectedCompanyId')
+
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+    }
+
+    return Promise.reject(error)
+  }
+)
+
 // Types
+export interface Company {
+  id: string
+  name: string
+  slug: string
+  createdAt?: string
+  updatedAt?: string
+}
 export interface Appointment {
   id: number
   petNome: string
@@ -43,48 +104,47 @@ export interface Service {
   ativo: boolean
 }
 
-// Dashboard APIs
+// Dashboard APIs - Now using interceptor, no need for manual companyId
 export const dashboardApi = {
-  getStats: async (companyId: number = 1) => {
-    const response = await api.get(`/dashboard/stats?companyId=${companyId}`)
+  getStats: async () => {
+    const response = await api.get('/dashboard/stats')
     return response.data
   },
 
-  getImpact: async (companyId: number = 1) => {
-    const response = await api.get(`/dashboard/impact?companyId=${companyId}`)
+  getImpact: async () => {
+    const response = await api.get('/dashboard/impact')
     return response.data
   },
 
-  getOvernight: async (companyId: number = 1) => {
-    const response = await api.get(`/dashboard/overnight?companyId=${companyId}`)
+  getOvernight: async () => {
+    const response = await api.get('/dashboard/overnight')
     return response.data
   },
 
-  getActions: async (companyId: number = 1, limit: number = 10) => {
-    const response = await api.get(`/dashboard/actions?companyId=${companyId}&limit=${limit}`)
+  getActions: async (limit: number = 10) => {
+    const response = await api.get(`/dashboard/actions?limit=${limit}`)
     return response.data
   },
 
-  getRevenueTimeline: async (companyId: number = 1, days: number = 7) => {
-    const response = await api.get(`/dashboard/revenue-timeline?companyId=${companyId}&days=${days}`)
+  getRevenueTimeline: async (days: number = 7) => {
+    const response = await api.get(`/dashboard/revenue-timeline?days=${days}`)
     return response.data
   },
 
-  getAutomation: async (companyId: number = 1, days: number = 30) => {
-    const response = await api.get(`/dashboard/automation?companyId=${companyId}&days=${days}`)
+  getAutomation: async (days: number = 30) => {
+    const response = await api.get(`/dashboard/automation?days=${days}`)
     return response.data
   },
 }
 
-// WhatsApp APIs
+// WhatsApp APIs - Now using interceptor, no need for manual companyId
 export const whatsappApi = {
-  getSessions: async (companyId: number = 1) => {
-    const response = await api.get(`/whatsapp/sessions?companyId=${companyId}`)
+  getSessions: async () => {
+    const response = await api.get('/whatsapp/sessions')
     return response.data.sessions
   },
 
   createSession: async (data: {
-    companyId: number
     sessionName: string
     wahaUrl: string
     wahaApiKey: string
@@ -168,36 +228,170 @@ export const appointmentsApi = {
   },
 }
 
-// Services APIs
+// Services APIs (part of appointments API)
 export const servicesApi = {
   list: async () => {
-    const response = await api.get('/services')
+    const response = await api.get('/appointments/services')
     return response.data
   },
 
   get: async (id: number) => {
-    const response = await api.get(`/services/${id}`)
+    const response = await api.get(`/appointments/services/${id}`)
     return response.data
   },
 
   create: async (data: Partial<Service>) => {
-    const response = await api.post('/services', data)
+    const response = await api.post('/appointments/services', data)
     return response.data
   },
 
   update: async (id: number, data: Partial<Service>) => {
-    const response = await api.put(`/services/${id}`, data)
+    const response = await api.put(`/appointments/services/${id}`, data)
     return response.data
   },
 
   delete: async (id: number) => {
-    const response = await api.delete(`/services/${id}`)
+    const response = await api.delete(`/appointments/services/${id}`)
     return response.data
+  },
+}
+
+// Conversations APIs
+export interface Conversation {
+  id: string
+  chatId: string
+  companyId: number
+  clientName: string
+  clientPhone: string
+  lastMessage: string
+  lastMessageAt: string
+  unreadCount: number
+  status: 'new' | 'replied' | 'archived'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Message {
+  id: string
+  chatId: string
+  from: string
+  to: string
+  body: string
+  timestamp: string
+  fromMe: boolean
+  ack: number
+  hasMedia: boolean
+  mediaUrl?: string
+  quotedMsgId?: string
+}
+
+export const conversationsApi = {
+  list: async (params?: {
+    status?: string
+    search?: string
+    startDate?: string
+    endDate?: string
+    page?: number
+    limit?: number
+  }) => {
+    const response = await api.get('/conversations', { params })
+    return response.data
+  },
+
+  get: async (chatId: string) => {
+    const response = await api.get(`/conversations/${chatId}`)
+    return response.data
+  },
+
+  getMessages: async (chatId: string, params?: {
+    page?: number
+    limit?: number
+  }) => {
+    const response = await api.get(`/conversations/${chatId}/messages`, { params })
+    return response.data
+  },
+
+  updateStatus: async (chatId: string, status: 'new' | 'replied' | 'archived') => {
+    const response = await api.patch(`/conversations/${chatId}/status`, { status })
+    return response.data
+  },
+
+  markAsRead: async (chatId: string) => {
+    const response = await api.patch(`/conversations/${chatId}/read`)
+    return response.data
+  },
+}
+
+// Settings APIs
+export interface CompanySettings {
+  id: number
+  companyId: number
+  companyName: string
+  agentName: string
+  openingTime: string
+  closingTime: string
+  maxConcurrentCapacity: number
+  timezone: string
+  reminders: {
+    d1Active: boolean
+    h12Active: boolean
+    h4Active: boolean
+    h1Active: boolean
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SettingsUpdateData {
+  company_name?: string
+  agent_name?: string
+  opening_time?: string
+  closing_time?: string
+  max_concurrent_capacity?: number
+  timezone?: string
+  reminder_d1_active?: boolean
+  reminder_12h_active?: boolean
+  reminder_4h_active?: boolean
+  reminder_1h_active?: boolean
+}
+
+export const settingsApi = {
+  get: async () => {
+    const response = await api.get('/settings')
+    return response.data.settings as CompanySettings
+  },
+
+  update: async (data: SettingsUpdateData) => {
+    const response = await api.put('/settings', data)
+    return response.data.settings as CompanySettings
   },
 }
 
 // Availability APIs (stub - implementar futuramente se necessário)
 export const availabilityApi = {}
+
+// Companies API
+export const companiesApi = {
+  list: async () => {
+    const response = await api.get('/companies')
+    return response.data
+  },
+
+  get: async (id: string) => {
+    const response = await api.get(`/companies/${id}`)
+    return response.data
+  },
+
+  create: async (data: Partial<Company>) => {
+    const response = await api.post('/companies', data)
+    return response.data
+  },
+
+  update: async (id: string, data: Partial<Company>) => {
+    const response = await api.put(`/companies/${id}`, data)
+    return response.data
+  },
+}
 
 // Health check
 export const healthApi = {

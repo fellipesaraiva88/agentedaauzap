@@ -7,6 +7,7 @@ import { Zap, DollarSign, TrendingUp, Clock } from 'lucide-react'
 import { motion } from 'framer-motion'
 import CountUp from 'react-countup'
 import { cn } from '@/lib/utils'
+import { dashboardApi } from '@/lib/api'
 
 interface ImpactData {
   hoursWorked: number
@@ -16,18 +17,20 @@ interface ImpactData {
 }
 
 async function getImpactMetrics(): Promise<ImpactData> {
-  // TODO: Conectar com API real
-  const response = await fetch('/api/dashboard/impact')
-  if (!response.ok) {
-    // Mock data para desenvolvimento
+  try {
+    const response = await dashboardApi.getImpact()
+    // Backend retorna { impact: {...} }
+    return response.impact || response
+  } catch (error) {
+    console.error('Erro ao buscar métricas de impacto:', error)
+    // Retorna dados zerados em caso de erro
     return {
-      hoursWorked: 147,
-      economicValue: 8950,
-      salesClosed: 23,
-      daysOfWorkSaved: 18,
+      hoursWorked: 0,
+      economicValue: 0,
+      salesClosed: 0,
+      daysOfWorkSaved: 0,
     }
   }
-  return response.json()
 }
 
 const impactMetrics = [

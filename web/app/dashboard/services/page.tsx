@@ -22,13 +22,13 @@ export default function ServicesPage() {
         <p className="text-gray-500">Gerencie os serviços oferecidos</p>
       </div>
 
-      {categorias.map((categoria) => (
+      {categorias.map((categoria: string) => (
         <div key={categoria}>
           <h2 className="text-xl font-semibold mb-4 capitalize">{categoria}</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {servicesData?.data
-              .filter((service) => service.categoria === categoria)
-              .map((service) => (
+              .filter((service: Service) => service.categoria === categoria)
+              .map((service: Service) => (
                 <Card key={service.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between">

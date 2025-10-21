@@ -6,6 +6,7 @@ import { Heading, Body } from './ui/typography'
 import { Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { dashboardApi } from '@/lib/api'
 
 interface AutomationData {
   automated: number
@@ -14,17 +15,17 @@ interface AutomationData {
 }
 
 async function getAutomationData(): Promise<AutomationData> {
-  // TODO: Conectar com API real
-  const response = await fetch('/api/dashboard/automation')
-  if (!response.ok) {
-    // Mock data para desenvolvimento
+  try {
+    const data = await dashboardApi.getAutomation(1, 30)
+    return data
+  } catch (error) {
+    console.error('Erro ao buscar dados de automação:', error)
     return {
-      automated: 87,
-      manual: 13,
-      total: 100,
+      automated: 0,
+      manual: 0,
+      total: 0,
     }
   }
-  return response.json()
 }
 
 const COLORS = {

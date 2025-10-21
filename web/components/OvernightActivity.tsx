@@ -7,6 +7,7 @@ import { Moon, CheckCircle2, Calendar, DollarSign, Bell, Sparkles } from 'lucide
 import { motion } from 'framer-motion'
 import CountUp from 'react-countup'
 import { cn } from '@/lib/utils'
+import { dashboardApi } from '@/lib/api'
 
 interface OvernightData {
   clientsServed: number
@@ -16,18 +17,19 @@ interface OvernightData {
 }
 
 async function getOvernightActivity(): Promise<OvernightData> {
-  // TODO: Conectar com API real
-  const response = await fetch('/api/dashboard/overnight')
-  if (!response.ok) {
-    // Mock data para desenvolvimento
+  try {
+    const response = await dashboardApi.getOvernight()
+    // Backend retorna { overnight: {...} }
+    return response.overnight || response
+  } catch (error) {
+    console.error('Erro ao buscar atividade noturna:', error)
     return {
-      clientsServed: 12,
-      bookingsConfirmed: 8,
-      salesValue: 1450,
-      followupsSent: 15,
+      clientsServed: 0,
+      bookingsConfirmed: 0,
+      salesValue: 0,
+      followupsSent: 0,
     }
   }
-  return response.json()
 }
 
 const metrics = [
