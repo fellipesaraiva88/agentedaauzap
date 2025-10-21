@@ -86,17 +86,22 @@ const intentAnalyzer = new IntentAnalyzer();
 console.log('✅ Serviços de contexto inicializados!\n');
 
 // 🐘 TESTA CONEXÃO POSTGRESQL (se configurado)
+let dbPool: any = undefined;
 if (postgresClient.isPostgresConnected()) {
   console.log('🐘 Testando conexão PostgreSQL...');
+  dbPool = postgresClient.getPool(); // 🆕 Obter pool para usar no MessageProcessor
   postgresClient.testConnection().then(success => {
     if (success) {
-      console.log('✅ PostgreSQL: Conexão verificada e funcionando!\n');
+      console.log('✅ PostgreSQL: Conexão verificada e funcionando!');
+      console.log('📅 Sistema de Agendamentos disponível!\n');
     } else {
       console.error('❌ PostgreSQL: Teste falhou - verifique configuração\n');
     }
   }).catch(err => {
     console.error('❌ PostgreSQL: Erro ao testar:', err.message, '\n');
   });
+} else {
+  console.log('⚠️ PostgreSQL não configurado - Sistema de Agendamentos desabilitado\n');
 }
 
 // 🔴 TESTA CONEXÃO REDIS (se configurado)

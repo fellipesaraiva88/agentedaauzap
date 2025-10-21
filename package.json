@@ -14,7 +14,8 @@
     "migrate": "ts-node src/scripts/run-migration.ts",
     "migrate:005": "ts-node src/scripts/run-migration.ts 005",
     "validate:schema": "ts-node src/scripts/validate-schema.ts",
-    "test:appointments": "ts-node src/test/appointment-test.ts"
+    "test:appointments": "ts-node src/test/appointment-test.ts",
+    "cron:reminders": "ts-node src/cron/reminder-scheduler.ts"
   },
   "keywords": [
     "whatsapp",
