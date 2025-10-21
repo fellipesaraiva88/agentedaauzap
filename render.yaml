@@ -44,10 +44,7 @@ services:
     staticPublishPath: web/out
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: agentedaauzap-api
-          property: host
+        value: https://agentedaauzap-api.onrender.com/api
     routes:
       - type: rewrite
         source: /*
