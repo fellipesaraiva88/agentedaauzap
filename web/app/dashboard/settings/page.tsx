@@ -50,7 +50,7 @@ export default function SettingsPage() {
   // Buscar settings
   const { data: settings, isLoading, error } = useQuery<CompanySettings>({
     queryKey: ['settings', companyId],
-    queryFn: () => settingsApi.get(companyId),
+    queryFn: () => settingsApi.get(),
     retry: 1,
   })
 
@@ -96,7 +96,7 @@ export default function SettingsPage() {
 
   // Mutation para salvar
   const mutation = useMutation({
-    mutationFn: (data: SettingsUpdateData) => settingsApi.update(companyId, data),
+    mutationFn: (data: SettingsUpdateData) => settingsApi.update(data),
     onSuccess: (updatedSettings) => {
       queryClient.setQueryData(['settings', companyId], updatedSettings)
       toast.success('Configurações salvas com sucesso!')
@@ -112,8 +112,8 @@ export default function SettingsPage() {
         reminderH1Active: updatedSettings.reminders.h1Active,
       })
     },
-    onError: (error: any) => {
-      const errorMessage = error.response?.data?.message || 'Erro ao salvar configurações'
+    onError: (error: unknown) => {
+      const errorMessage = (error as any).response?.data?.message || 'Erro ao salvar configurações'
       toast.error(errorMessage)
       console.error('Error saving settings:', error)
     },

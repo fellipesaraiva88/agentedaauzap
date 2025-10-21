@@ -50,18 +50,14 @@ export function NewAppointmentDialog({ open, onOpenChange, onSuccess }: NewAppoi
   const createMutation = useMutation({
     mutationFn: () =>
       appointmentsApi.create({
-        companyId: 1,
-        chatId: formData.chatId || `manual_${Date.now()}@c.us`,
         tutorNome: formData.tutorNome,
         tutorTelefone: formData.tutorTelefone,
         petNome: formData.petNome,
-        petTipo: formData.petTipo,
-        petPorte: formData.petPorte,
         serviceId: Number(formData.serviceId),
         dataAgendamento: formData.dataAgendamento,
         horaAgendamento: formData.horaAgendamento,
         observacoes: formData.observacoes || undefined,
-      }),
+      } as any),
     onSuccess: () => {
       onSuccess()
       onOpenChange(false)

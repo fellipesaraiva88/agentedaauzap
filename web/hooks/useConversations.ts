@@ -31,7 +31,7 @@ export function useConversations(options: UseConversationsOptions = {}) {
   // Query para listar conversas
   const conversationsQuery = useQuery({
     queryKey: ['conversations', companyId, filters],
-    queryFn: () => conversationsApi.list(companyId, {
+    queryFn: () => conversationsApi.list({
       status: filters.status === 'all' ? undefined : filters.status,
       search: filters.search || undefined,
       startDate: filters.dateRange.start || undefined,

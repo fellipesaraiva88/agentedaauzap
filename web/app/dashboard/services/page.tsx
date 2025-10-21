@@ -13,11 +13,11 @@ export default function ServicesPage() {
     queryFn: () => servicesApi.list(),
   })
 
-  const categorias = Array.from(
+  const categorias: string[] = Array.from(
     new Set(
-      servicesData?.data
+      (servicesData?.data || [])
         .map((s: Service) => s.categoria)
-        .filter((c): c is string => Boolean(c)) || []
+        .filter((c: string | undefined): c is string => Boolean(c))
     )
   )
 

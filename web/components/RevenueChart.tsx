@@ -15,7 +15,7 @@ interface RevenueDataPoint {
 
 async function getRevenueTimeline(): Promise<RevenueDataPoint[]> {
   try {
-    const data = await dashboardApi.getRevenueTimeline(1, 7)
+    const data = await dashboardApi.getRevenueTimeline(7)
     return data.timeline || []
   } catch (error) {
     console.error('Erro ao buscar timeline de receita:', error)

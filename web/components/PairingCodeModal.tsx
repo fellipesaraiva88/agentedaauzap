@@ -22,7 +22,7 @@ export function PairingCodeModal({ open, onClose, pairingCode, sessionName }: Pr
           {pairingCode ? (
             <>
               <div className="rounded-lg bg-gradient-to-br from-primary/10 to-purple-100/50 p-8 dark:from-primary/20 dark:to-purple-900/20">
-                <Heading size="xl" className="font-mono tracking-widest">
+                <Heading size="lg" className="font-mono tracking-widest">
                   {pairingCode}
                 </Heading>
               </div>

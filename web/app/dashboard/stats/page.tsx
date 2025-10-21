@@ -30,7 +30,8 @@ export default function StatsPage() {
     return acc
   }, {} as Record<string, number>)
 
-  const servicosOrdenados = Object.entries(servicosMaisPopulares || {})
+  const servicosOrdenados: [string, number][] = Object.entries(servicosMaisPopulares || {})
+    .map(([key, value]) => [key, value as number] as [string, number])
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
 

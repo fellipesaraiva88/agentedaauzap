@@ -16,7 +16,7 @@ interface AutomationData {
 
 async function getAutomationData(): Promise<AutomationData> {
   try {
-    const data = await dashboardApi.getAutomation(1, 30)
+    const data = await dashboardApi.getAutomation(30)
     return data
   } catch (error) {
     console.error('Erro ao buscar dados de automação:', error)

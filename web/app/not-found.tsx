@@ -24,7 +24,7 @@ export default function NotFound() {
           <Display className="text-9xl font-bold text-primary/20">404</Display>
         </motion.div>
 
-        <Heading size="xl" className="mb-4">
+        <Heading size="lg" className="mb-4">
           Ops! Página não encontrada
         </Heading>
 

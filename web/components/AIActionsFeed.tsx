@@ -21,7 +21,7 @@ interface AIAction {
 
 async function getAIActions(): Promise<AIAction[]> {
   try {
-    const data = await dashboardApi.getActions(1, 10)
+    const data = await dashboardApi.getActions(10)
     return data.actions || []
   } catch (error) {
     console.error('Erro ao buscar ações da IA:', error)
