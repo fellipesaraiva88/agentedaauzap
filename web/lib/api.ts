@@ -400,3 +400,372 @@ export const healthApi = {
     return response.data
   },
 }
+
+// ============================================================================
+// NOTIFICATIONS API
+// ============================================================================
+
+export interface Notification {
+  id: number
+  company_id: number
+  user_id?: number
+  tipo: 'info' | 'warning' | 'error' | 'success'
+  titulo: string
+  mensagem: string
+  nivel: 'low' | 'medium' | 'high' | 'critical'
+  lida: boolean
+  arquivada: boolean
+  acao_url?: string
+  acao_label?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface NotificationFilters {
+  lida?: boolean
+  arquivada?: boolean
+  tipo?: 'info' | 'warning' | 'error' | 'success'
+  nivel?: 'low' | 'medium' | 'high' | 'critical'
+  limit?: number
+  offset?: number
+}
+
+export interface CreateNotificationData {
+  tipo: 'info' | 'warning' | 'error' | 'success'
+  titulo: string
+  mensagem: string
+  nivel?: 'low' | 'medium' | 'high' | 'critical'
+  user_id?: number
+  acao_url?: string
+  acao_label?: string
+}
+
+export const notificationsApi = {
+  // List notifications with filters
+  list: async (filters?: NotificationFilters) => {
+    const response = await api.get('/notifications', { params: filters })
+    return response.data
+  },
+
+  // Get unread notifications only
+  getUnread: async () => {
+    const response = await api.get('/notifications/unread')
+    return response.data
+  },
+
+  // Get unread count
+  getCount: async () => {
+    const response = await api.get('/notifications/count')
+    return response.data
+  },
+
+  // Get single notification by ID
+  get: async (id: number) => {
+    const response = await api.get(`/notifications/${id}`)
+    return response.data
+  },
+
+  // Create new notification
+  create: async (data: CreateNotificationData) => {
+    const response = await api.post('/notifications', data)
+    return response.data
+  },
+
+  // Mark as read
+  markAsRead: async (id: number) => {
+    const response = await api.patch(`/notifications/${id}/read`)
+    return response.data
+  },
+
+  // Mark as unread
+  markAsUnread: async (id: number) => {
+    const response = await api.patch(`/notifications/${id}/unread`)
+    return response.data
+  },
+
+  // Archive notification
+  archive: async (id: number) => {
+    const response = await api.patch(`/notifications/${id}/archive`)
+    return response.data
+  },
+
+  // Mark all as read
+  markAllAsRead: async () => {
+    const response = await api.post('/notifications/mark-all-read')
+    return response.data
+  },
+
+  // Delete notification
+  delete: async (id: number) => {
+    const response = await api.delete(`/notifications/${id}`)
+    return response.data
+  },
+
+  // Cleanup old notifications
+  cleanup: async (days: number = 30) => {
+    const response = await api.post('/notifications/cleanup', { days })
+    return response.data
+  },
+}
+
+// ============================================================================
+// STATS API
+// ============================================================================
+
+export interface DashboardStats {
+  tutors: {
+    total: number
+    vip: number
+    vipPercentage: number
+  }
+  appointments: {
+    total: number
+    pending: number
+    confirmed: number
+    completed: number
+  }
+  revenue: {
+    currentMonth: number
+    lastMonth: number
+    growth: number
+    growthFormatted: string
+  }
+  conversations: {
+    last24h: number
+  }
+  timestamp: string
+}
+
+export interface AppointmentStatsParams {
+  period?: 'day' | 'week' | 'month' | 'year'
+  startDate?: string
+  endDate?: string
+}
+
+export interface RevenueStatsParams {
+  period?: 'week' | 'month' | 'year'
+  groupBy?: 'day' | 'week' | 'month'
+}
+
+export const statsApi = {
+  // Dashboard overview stats
+  getDashboard: async () => {
+    const response = await api.get('/stats/dashboard')
+    return response.data
+  },
+
+  // Detailed appointment stats
+  getAppointments: async (params?: AppointmentStatsParams) => {
+    const response = await api.get('/stats/appointments', { params })
+    return response.data
+  },
+
+  // Revenue stats with timeline
+  getRevenue: async (params?: RevenueStatsParams) => {
+    const response = await api.get('/stats/revenue', { params })
+    return response.data
+  },
+
+  // Client/Tutor stats
+  getClients: async () => {
+    const response = await api.get('/stats/clients')
+    return response.data
+  },
+
+  // Service performance stats
+  getServices: async () => {
+    const response = await api.get('/stats/services')
+    return response.data
+  },
+
+  // Conversation stats
+  getConversations: async () => {
+    const response = await api.get('/stats/conversations')
+    return response.data
+  },
+
+  // Night activity (22h-8h)
+  getNightActivity: async () => {
+    const response = await api.get('/stats/night-activity')
+    return response.data
+  },
+
+  // AI Impact metrics
+  getImpact: async () => {
+    const response = await api.get('/stats/impact')
+    return response.data
+  },
+
+  // Revenue timeline by hour
+  getRevenueTimeline: async () => {
+    const response = await api.get('/stats/revenue-timeline')
+    return response.data
+  },
+
+  // Automation stats
+  getAutomation: async () => {
+    const response = await api.get('/stats/automation')
+    return response.data
+  },
+}
+
+// ============================================================================
+// PETS API
+// ============================================================================
+
+export interface Pet {
+  id: number
+  company_id: number
+  tutor_id: number
+  nome: string
+  especie: string
+  raca?: string
+  idade?: number
+  peso?: number
+  porte: 'pequeno' | 'medio' | 'grande'
+  sexo?: 'macho' | 'femea'
+  observacoes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreatePetData {
+  tutor_id: number
+  nome: string
+  especie: string
+  raca?: string
+  idade?: number
+  peso?: number
+  porte: 'pequeno' | 'medio' | 'grande'
+  sexo?: 'macho' | 'femea'
+  observacoes?: string
+}
+
+export const petsApi = {
+  // List all pets
+  list: async (params?: { tutor_id?: number; limit?: number; offset?: number }) => {
+    const response = await api.get('/pets', { params })
+    return response.data
+  },
+
+  // Get single pet
+  get: async (id: number) => {
+    const response = await api.get(`/pets/${id}`)
+    return response.data
+  },
+
+  // Create pet
+  create: async (data: CreatePetData) => {
+    const response = await api.post('/pets', data)
+    return response.data
+  },
+
+  // Update pet
+  update: async (id: number, data: Partial<CreatePetData>) => {
+    const response = await api.put(`/pets/${id}`, data)
+    return response.data
+  },
+
+  // Delete pet
+  delete: async (id: number) => {
+    const response = await api.delete(`/pets/${id}`)
+    return response.data
+  },
+}
+
+// ============================================================================
+// TUTORS API
+// ============================================================================
+
+export interface Tutor {
+  id: number
+  company_id: number
+  nome: string
+  telefone: string
+  email?: string
+  endereco?: string
+  cidade?: string
+  estado?: string
+  cep?: string
+  data_nascimento?: string
+  cpf?: string
+  observacoes?: string
+  is_vip: boolean
+  is_inativo: boolean
+  preferencias?: Record<string, any>
+  tags?: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateTutorData {
+  nome: string
+  telefone: string
+  email?: string
+  endereco?: string
+  cidade?: string
+  estado?: string
+  cep?: string
+  data_nascimento?: string
+  cpf?: string
+  observacoes?: string
+  is_vip?: boolean
+  preferencias?: Record<string, any>
+  tags?: string[]
+}
+
+export const tutorsApi = {
+  // List tutors with filters
+  list: async (params?: {
+    search?: string
+    is_vip?: boolean
+    is_inativo?: boolean
+    limit?: number
+    offset?: number
+  }) => {
+    const response = await api.get('/tutors', { params })
+    return response.data
+  },
+
+  // Get single tutor
+  get: async (id: number) => {
+    const response = await api.get(`/tutors/${id}`)
+    return response.data
+  },
+
+  // Get tutor by phone
+  getByPhone: async (telefone: string) => {
+    const response = await api.get(`/tutors/phone/${telefone}`)
+    return response.data
+  },
+
+  // Create tutor
+  create: async (data: CreateTutorData) => {
+    const response = await api.post('/tutors', data)
+    return response.data
+  },
+
+  // Update tutor
+  update: async (id: number, data: Partial<CreateTutorData>) => {
+    const response = await api.put(`/tutors/${id}`, data)
+    return response.data
+  },
+
+  // Toggle VIP status
+  toggleVip: async (id: number) => {
+    const response = await api.patch(`/tutors/${id}/toggle-vip`)
+    return response.data
+  },
+
+  // Toggle inactive status
+  toggleInactive: async (id: number) => {
+    const response = await api.patch(`/tutors/${id}/toggle-inactive`)
+    return response.data
+  },
+
+  // Delete tutor
+  delete: async (id: number) => {
+    const response = await api.delete(`/tutors/${id}`)
+    return response.data
+  },
+}

@@ -34,7 +34,7 @@ export interface Transaction {
  * Classe base para todos os DAOs
  * Fornece operações CRUD genéricas e suporte a multi-tenancy
  */
-export abstract class BaseDAO<T extends BaseEntity> {
+export abstract class BaseDAO<T extends BaseEntity = BaseEntity> {
   protected tableName: string;
   protected postgres: PostgreSQLClient;
   protected companyId?: number;

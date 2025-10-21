@@ -356,6 +356,107 @@ export class RedisClient {
       console.log('✅ Redis: Conexão fechada');
     }
   }
+
+  // ==========================================
+  // MÉTODOS ADICIONAIS
+  // ==========================================
+
+  /**
+   * SETEX - Set com expiração (alias para set com TTL)
+   */
+  public async setex(key: string, seconds: number, value: any): Promise<void> {
+    return this.set(key, value, seconds);
+  }
+
+  /**
+   * DEL - Alias para delete
+   */
+  public async del(key: string | string[]): Promise<void> {
+    if (!this.client || !this.isConnected) {
+      return;
+    }
+
+    try {
+      if (Array.isArray(key)) {
+        await this.client.del(...key);
+      } else {
+        await this.client.del(key);
+      }
+    } catch (error) {
+      console.error('❌ Redis DEL failed:', error);
+    }
+  }
+
+  /**
+   * KEYS - Busca chaves por padrão
+   */
+  public async keys(pattern: string): Promise<string[]> {
+    if (!this.client || !this.isConnected) {
+      return [];
+    }
+
+    try {
+      return await this.client.keys(pattern);
+    } catch (error) {
+      console.error('❌ Redis KEYS failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * LPUSH - Adiciona elemento(s) no início da lista
+   */
+  public async lpush(key: string, ...values: any[]): Promise<number> {
+    if (!this.client || !this.isConnected) {
+      return 0;
+    }
+
+    try {
+      const serialized = values.map(v => typeof v === 'string' ? v : JSON.stringify(v));
+      return await this.client.lpush(key, ...serialized);
+    } catch (error) {
+      console.error('❌ Redis LPUSH failed:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * LTRIM - Mantém apenas elementos no range especificado
+   */
+  public async ltrim(key: string, start: number, stop: number): Promise<void> {
+    if (!this.client || !this.isConnected) {
+      return;
+    }
+
+    try {
+      await this.client.ltrim(key, start, stop);
+    } catch (error) {
+      console.error('❌ Redis LTRIM failed:', error);
+    }
+  }
+
+  /**
+   * LRANGE - Retorna range de elementos da lista
+   */
+  public async lrange(key: string, start: number, stop: number): Promise<any[]> {
+    if (!this.client || !this.isConnected) {
+      return [];
+    }
+
+    try {
+      const values = await this.client.lrange(key, start, stop);
+      return values.map(v => {
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      });
+    } catch (error) {
+      console.error('❌ Redis LRANGE failed:', error);
+      return [];
+    }
+  }
 }
 
 /**

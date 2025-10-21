@@ -51,35 +51,35 @@ export function createConversationsRoutes(db: Pool) {
       const dateTo = req.query.dateTo as string;
       const status = req.query.status as string;
 
-      // Build dynamic WHERE clauses
-      const whereConditions: string[] = ['a.company_id = $1'];
+      // Build dynamic WHERE clauses (sem alias para usar em ambas queries)
+      const whereConditions: string[] = ['company_id = $1'];
       const queryParams: any[] = [companyId];
       let paramIndex = 2;
 
       // Filtro de busca por nome
       if (search) {
-        whereConditions.push(`LOWER(a.tutor_nome) LIKE LOWER($${paramIndex})`);
+        whereConditions.push(`LOWER(tutor_nome) LIKE LOWER($${paramIndex})`);
         queryParams.push(`%${search}%`);
         paramIndex++;
       }
 
       // Filtro de data (início)
       if (dateFrom) {
-        whereConditions.push(`a.created_at >= $${paramIndex}`);
+        whereConditions.push(`created_at >= $${paramIndex}`);
         queryParams.push(dateFrom);
         paramIndex++;
       }
 
       // Filtro de data (fim)
       if (dateTo) {
-        whereConditions.push(`a.created_at <= $${paramIndex}`);
+        whereConditions.push(`created_at <= $${paramIndex}`);
         queryParams.push(dateTo);
         paramIndex++;
       }
 
       // Filtro de status do último agendamento
       if (status) {
-        whereConditions.push(`a.status = $${paramIndex}`);
+        whereConditions.push(`status = $${paramIndex}`);
         queryParams.push(status);
         paramIndex++;
       }
@@ -133,7 +133,7 @@ export function createConversationsRoutes(db: Pool) {
       // Query de contagem total
       const countQuery = `
         SELECT COUNT(DISTINCT chat_id) as total
-        FROM appointments a
+        FROM appointments
         WHERE ${whereClause}
       `;
 
@@ -463,3 +463,4 @@ export function createConversationsRoutes(db: Pool) {
 
   return router;
 }
+export default createConversationsRoutes;

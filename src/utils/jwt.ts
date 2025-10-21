@@ -7,9 +7,22 @@ import jwt from 'jsonwebtoken';
  * para autenticação de usuários
  */
 
-// Secrets (devem vir de variáveis de ambiente em produção)
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || 'auzap-access-secret-change-in-production';
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'auzap-refresh-secret-change-in-production';
+// Secrets (OBRIGATÓRIOS em produção)
+const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_ACCESS_SECRET must be set in production environment');
+  }
+  console.warn('⚠️  Using default JWT_ACCESS_SECRET - ONLY for development');
+  return 'dev-only-access-secret-DO-NOT-USE-IN-PRODUCTION';
+})();
+
+const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || (() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_REFRESH_SECRET must be set in production environment');
+  }
+  console.warn('⚠️  Using default JWT_REFRESH_SECRET - ONLY for development');
+  return 'dev-only-refresh-secret-DO-NOT-USE-IN-PRODUCTION';
+})();
 
 // Expiração dos tokens
 const ACCESS_TOKEN_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '15m'; // 15 minutos
@@ -227,3 +240,8 @@ export function extractTokenFromHeader(authHeader: string | undefined): string |
 
   return parts[1];
 }
+
+/**
+ * Alias para verifyAccessToken (compatibilidade)
+ */
+export const verifyToken = verifyAccessToken;

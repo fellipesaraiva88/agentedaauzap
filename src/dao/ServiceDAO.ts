@@ -90,11 +90,11 @@ export class ServiceDAO extends BaseDAO<Service> {
       ativo: true,
       popular: false,
       promocao_ativa: false,
-      requer_agendamento: true,
-      permite_walk_in: false,
-      capacidade_simultanea: 1,
+      requer_agendamento: data.requer_agendamento ?? true,
+      permite_walk_in: data.permite_walk_in ?? false,
+      capacidade_simultanea: data.capacidade_simultanea ?? 1,
       duracao_minutos: data.duracao_minutos || 60,
-      ordem: 0,
+      ordem: data.ordem ?? 0,
       created_at: new Date(),
       updated_at: new Date()
     };

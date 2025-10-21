@@ -535,3 +535,4 @@ export function createSettingsRoutes(db: Pool) {
 
   return router;
 }
+export default createSettingsRoutes;

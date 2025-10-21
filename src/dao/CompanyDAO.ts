@@ -98,7 +98,7 @@ export class CompanyDAO extends BaseDAO<Company> {
    * Remove API key da empresa
    */
   public async revokeApiKey(companyId: number): Promise<void> {
-    await this.update(companyId, { api_key: undefined });
+    await this.update(companyId, { api_key: null } as any);
   }
 
   /**

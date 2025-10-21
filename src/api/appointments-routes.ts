@@ -343,3 +343,4 @@ export function createAppointmentsRouter(db: Pool): Router {
 
   return router;
 }
+export default createAppointmentsRouter;
