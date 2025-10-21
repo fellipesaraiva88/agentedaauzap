@@ -321,8 +321,8 @@ if (postgresClient.isPostgresConnected()) {
    * Appointments API Routes
    * Requires: Authentication + Tenant Context
    */
-  const { createAppointmentsRoutes } = require('./api/appointments-routes');
-  const appointmentsRouter = createAppointmentsRoutes(db);
+  const { createAppointmentsRouter } = require('./api/appointments-routes');
+  const appointmentsRouter = createAppointmentsRouter(db);
 
   app.use('/api/appointments',
     requireAuth(),                    // 1. Validate JWT
