@@ -14,6 +14,8 @@ import companiesRoutes from './companies-routes';
 import notificationsRoutes from './notifications-routes';
 import statsRoutes from './stats-routes';
 import servicesRoutes from './services-routes';
+import productsRoutes from './products-routes';
+import reportsRoutes from './reports-routes';
 
 const router = Router();
 
@@ -65,6 +67,8 @@ router.use('/companies', companiesRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/stats', statsRateLimiter, statsRoutes); // Rate limit mais restritivo para stats
 router.use('/services', servicesRoutes);
+router.use('/products', writeOperationLimiter, productsRoutes);
+router.use('/reports', statsRateLimiter, reportsRoutes);
 
 /**
  * Middleware de erro 404
