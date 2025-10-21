@@ -13,7 +13,7 @@ const postgres = PostgreSQLClient.getInstance();
  */
 router.get(
   '/actions',
-  requireAuth,
+  requireAuth(),
   async (req: any, res: Response) => {
     try {
     const companyId = req.companyId;
@@ -88,7 +88,7 @@ router.get(
  */
 router.get(
   '/stats',
-  requireAuth,
+  requireAuth(),
   async (req: any, res: Response) => {
     try {
     const companyId = req.companyId;

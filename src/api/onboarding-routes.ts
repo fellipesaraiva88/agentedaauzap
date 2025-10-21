@@ -8,7 +8,7 @@ const router = Router();
  * GET /api/onboarding/progress
  * Busca o progresso do onboarding do usuário atual
  */
-router.get('/progress', requireAuth, async (req: Request, res: Response) => {
+router.get('/progress', requireAuth(), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const companyId = (req as any).user?.companyId;
@@ -81,7 +81,7 @@ router.get('/progress', requireAuth, async (req: Request, res: Response) => {
  * PUT /api/onboarding/progress
  * Atualiza o progresso do onboarding
  */
-router.put('/progress', requireAuth, async (req: Request, res: Response) => {
+router.put('/progress', requireAuth(), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const companyId = (req as any).user?.companyId;
@@ -156,7 +156,7 @@ router.put('/progress', requireAuth, async (req: Request, res: Response) => {
  * POST /api/onboarding/complete
  * Marca o onboarding como completo
  */
-router.post('/complete', requireAuth, async (req: Request, res: Response) => {
+router.post('/complete', requireAuth(), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const companyId = (req as any).user?.companyId;
@@ -218,7 +218,7 @@ router.post('/complete', requireAuth, async (req: Request, res: Response) => {
  * DELETE /api/onboarding/progress
  * Reseta o progresso do onboarding (admin only)
  */
-router.delete('/progress', requireAuth, async (req: Request, res: Response) => {
+router.delete('/progress', requireAuth(), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const companyId = (req as any).user?.companyId;
@@ -249,4 +249,4 @@ router.delete('/progress', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-export const createOnboardingRoutes = () => router;
+export const createOnboardingRoutes = (pool?: any) => router;
