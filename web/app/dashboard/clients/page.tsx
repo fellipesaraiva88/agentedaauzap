@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { appointmentsApi } from '@/lib/api'
+import { appointmentsApi, type Appointment } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -36,7 +36,7 @@ export default function ClientsPage() {
 
   const clientsMap = new Map<string, ClientData>()
 
-  appointmentsData?.data.forEach((appointment) => {
+  appointmentsData?.data.forEach((appointment: Appointment) => {
     const existing = clientsMap.get(appointment.tutorNome) || {
       tutorNome: appointment.tutorNome,
       tutorTelefone: appointment.tutorTelefone,
