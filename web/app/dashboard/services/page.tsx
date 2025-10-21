@@ -13,7 +13,13 @@ export default function ServicesPage() {
     queryFn: () => servicesApi.list(),
   })
 
-  const categorias = Array.from(new Set(servicesData?.data.map((s: Service) => s.categoria) || []))
+  const categorias = Array.from(
+    new Set(
+      servicesData?.data
+        .map((s: Service) => s.categoria)
+        .filter((c): c is string => Boolean(c)) || []
+    )
+  )
 
   return (
     <div className="space-y-6">
@@ -22,7 +28,7 @@ export default function ServicesPage() {
         <p className="text-gray-500">Gerencie os serviços oferecidos</p>
       </div>
 
-      {categorias.map((categoria: string) => (
+      {categorias.map((categoria) => (
         <div key={categoria}>
           <h2 className="text-xl font-semibold mb-4 capitalize">{categoria}</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
