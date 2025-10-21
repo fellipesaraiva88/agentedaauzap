@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ProgressStepper } from '@/components/onboarding/ProgressStepper'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'react-hot-toast'
+import { onboardingService, type OnboardingProgress } from '@/services/onboarding.service'
 import { Loader2, ArrowRight, ArrowLeft, AlertCircle, Save } from 'lucide-react'
 import {
   AlertDialog,
@@ -40,12 +41,6 @@ const STEPS = [
   { number: 9, title: 'Revisar' }
 ]
 
-interface OnboardingProgress {
-  currentStep: number
-  completed: boolean
-  data: Record<string, any>
-}
-
 export default function OnboardingPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -63,20 +58,18 @@ export default function OnboardingPage() {
   const loadProgress = async () => {
     try {
       setLoading(true)
-      // TODO: Implement API call to load progress
-      // const data = await onboardingService.getProgress()
-      // setProgress(data)
-      // setCurrentStep(data.currentStep)
-      
-      // Mock data for now
+      const data = await onboardingService.getProgress()
+      setProgress(data)
+      setCurrentStep(data.currentStep)
+    } catch (error) {
+      console.error('Failed to load onboarding progress:', error)
+      toast.error('Erro ao carregar progresso')
+      // Em caso de erro, iniciar do zero
       setProgress({
         currentStep: 1,
         completed: false,
         data: {}
       })
-    } catch (error) {
-      console.error('Failed to load onboarding progress:', error)
-      toast.error('Erro ao carregar progresso')
     } finally {
       setLoading(false)
     }
@@ -84,8 +77,17 @@ export default function OnboardingPage() {
 
   const handleNext = useCallback(async () => {
     if (currentStep < STEPS.length) {
-      setCurrentStep(prev => prev + 1)
-      // TODO: Save progress
+      try {
+        setSaving(true)
+        const updatedProgress = await onboardingService.goToNextStep(currentStep)
+        setProgress(updatedProgress)
+        setCurrentStep(updatedProgress.currentStep)
+      } catch (error) {
+        console.error('Failed to advance step:', error)
+        toast.error('Erro ao avançar')
+      } finally {
+        setSaving(false)
+      }
     }
   }, [currentStep])
 
@@ -98,8 +100,8 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     try {
       setSaving(true)
-      // TODO: Implement completion logic
-      toast.success('Onboarding concluído!')
+      await onboardingService.complete()
+      toast.success('Onboarding concluído com sucesso! 🎉')
       router.push('/dashboard')
     } catch (error) {
       console.error('Failed to complete onboarding:', error)

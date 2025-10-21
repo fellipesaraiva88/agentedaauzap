@@ -22,6 +22,7 @@ import { initializeDocumentIngestion } from './services/DocumentIngestionManager
 
 // 🔐 Authentication & Security
 import { createAuthRoutes } from './api/auth-routes';
+import { createOnboardingRoutes } from './api/onboarding-routes';
 import { requireAuth } from './middleware/auth';
 import { tenantContextMiddleware } from './middleware/tenantContext';
 import { globalRateLimiter, webhookRateLimiter } from './middleware/rateLimiter';
@@ -323,6 +324,14 @@ if (postgresClient.isPostgresConnected()) {
   console.log('✅ Authentication API routes registered');
   console.log('   POST /api/auth/register - Create account');
   console.log('   POST /api/auth/login - Login');
+
+  // 🎯 ONBOARDING ROUTES (Protected - Auth Required)
+  const onboardingRouter = createOnboardingRoutes();
+  app.use('/api/onboarding', onboardingRouter);
+  console.log('✅ Onboarding API routes registered');
+  console.log('   GET  /api/onboarding/progress - Get onboarding progress');
+  console.log('   PUT  /api/onboarding/progress - Update progress');
+  console.log('   POST /api/onboarding/complete - Complete onboarding');
   console.log('   POST /api/auth/refresh - Refresh token');
   console.log('   POST /api/auth/logout - Logout');
   console.log('   GET  /api/auth/me - Current user\n');
