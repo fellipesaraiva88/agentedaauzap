@@ -135,7 +135,7 @@ export default function AppointmentsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAppointments?.map((appointment) => (
+                  filteredAppointments?.map((appointment: Appointment) => (
                     <TableRow key={appointment.id}>
                       <TableCell className="font-medium">{appointment.petNome}</TableCell>
                       <TableCell>{appointment.tutorNome}</TableCell>

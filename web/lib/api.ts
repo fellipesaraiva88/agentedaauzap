@@ -26,10 +26,21 @@ export interface Appointment {
 
 export interface Service {
   id: number
+  companyId: number
   nome: string
-  descricao?: string
-  preco: number
-  duracao?: number
+  descricao: string
+  categoria: string
+  subcategoria: string
+  duracaoMinutos: number
+  precos: {
+    pequeno?: number
+    medio?: number
+    grande?: number
+    base?: number
+  }
+  requerAgendamento: boolean
+  permiteWalkIn: boolean
+  ativo: boolean
 }
 
 // Dashboard APIs
@@ -142,6 +153,19 @@ export const appointmentsApi = {
     const response = await api.patch(`/appointments/${id}/status`, { status })
     return response.data
   },
+
+  cancel: async (id: number) => {
+    const response = await api.patch(`/appointments/${id}/cancel`)
+    return response.data
+  },
+
+  reschedule: async (id: number, dataAgendamento: string, horaAgendamento: string) => {
+    const response = await api.patch(`/appointments/${id}/reschedule`, {
+      dataAgendamento,
+      horaAgendamento
+    })
+    return response.data
+  },
 }
 
 // Services APIs
@@ -171,6 +195,9 @@ export const servicesApi = {
     return response.data
   },
 }
+
+// Availability APIs (stub - implementar futuramente se necessário)
+export const availabilityApi = {}
 
 // Health check
 export const healthApi = {

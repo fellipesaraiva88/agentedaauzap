@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { appointmentsApi, servicesApi, availabilityApi } from '@/lib/api'
+import { appointmentsApi, servicesApi, type Service } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -149,7 +149,7 @@ export function NewAppointmentDialog({ open, onOpenChange, onSuccess }: NewAppoi
               <Label htmlFor="petPorte">Porte *</Label>
               <Select
                 value={formData.petPorte}
-                onValueChange={(value: any) => updateField('petPorte', value)}
+                onValueChange={(value: 'pequeno' | 'medio' | 'grande') => updateField('petPorte', value)}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -170,7 +170,7 @@ export function NewAppointmentDialog({ open, onOpenChange, onSuccess }: NewAppoi
                   <SelectValue placeholder="Selecione um serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {servicesData?.data.map((service) => (
+                  {servicesData?.data.map((service: Service) => (
                     <SelectItem key={service.id} value={service.id.toString()}>
                       {service.nome} - R${' '}
                       {service.precos[formData.petPorte as 'pequeno' | 'medio' | 'grande']?.toFixed(2)}

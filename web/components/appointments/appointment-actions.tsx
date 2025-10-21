@@ -165,7 +165,7 @@ export function AppointmentActions({ appointment, onUpdate }: AppointmentActions
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="status">Novo Status</Label>
-              <Select value={newStatus} onValueChange={(value: any) => setNewStatus(value)}>
+              <Select value={newStatus} onValueChange={(value: string) => setNewStatus(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
