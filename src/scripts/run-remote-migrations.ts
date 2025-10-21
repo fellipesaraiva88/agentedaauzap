@@ -28,7 +28,8 @@ async function runMigrations() {
     const migrationsDir = path.join(__dirname, '../../migrations');
     const migrations = [
       '006_create_whatsapp_sessions.sql',
-      '007_create_users_auth.sql'
+      '007_create_users_auth.sql',
+      '007_create_products_table.sql'
     ];
 
     for (const migration of migrations) {
@@ -61,7 +62,7 @@ async function runMigrations() {
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
-      AND table_name IN ('whatsapp_sessions', 'users', 'onboarding_progress')
+      AND table_name IN ('whatsapp_sessions', 'users', 'onboarding_progress', 'products')
       ORDER BY table_name
     `);
 
