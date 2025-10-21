@@ -47,7 +47,7 @@ export default function AppointmentsPage() {
     queryFn: () => servicesApi.list(),
   })
 
-  const filteredAppointments = appointmentsData?.data.filter((appointment) => {
+  const filteredAppointments = appointmentsData?.data.filter((appointment: Appointment) => {
     const matchesSearch =
       appointment.petNome.toLowerCase().includes(searchQuery.toLowerCase()) ||
       appointment.tutorNome.toLowerCase().includes(searchQuery.toLowerCase())
