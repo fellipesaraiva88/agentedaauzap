@@ -41,23 +41,47 @@ export class PostgreSQLClient {
     try {
       this.pool = new Pool({
         connectionString: databaseUrl,
-        max: 10, // máximo de conexões no pool (reduzido para evitar sobrecarga)
-        idleTimeoutMillis: 60000, // 60s - aumentado para queries longas
-        connectionTimeoutMillis: 30000, // 30s - aumentado timeout de conexão
-        statement_timeout: 60000, // 60s - timeout para queries longas
-        query_timeout: 60000, // 60s - timeout global de query
+        max: 5, // Reduzido de 10 para 5 (Supabase free tier tem limite)
+        min: 1, // Manter sempre 1 conexão ativa
+        idleTimeoutMillis: 30000, // 30s - reduzido para liberar conexões idle mais rápido
+        connectionTimeoutMillis: 10000, // 10s - timeout de conexão mais curto
+        allowExitOnIdle: false, // Não permitir que o pool termine quando idle
         ssl: {
           rejectUnauthorized: false // Necessário para Render e outros serviços cloud
-        }
+        },
+        // Keep-alive para manter conexões ativas
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000
       });
 
       // Event handlers
-      this.pool.on('connect', () => {
+      this.pool.on('connect', (client) => {
         console.log('✅ PostgreSQL: Nova conexão estabelecida');
+
+        // Configurar session timeout no cliente
+        client.query('SET statement_timeout = 60000').catch(err => {
+          console.warn('⚠️  Não foi possível configurar statement_timeout:', err.message);
+        });
       });
 
-      this.pool.on('error', (err) => {
-        console.error('❌ PostgreSQL: Erro inesperado:', err);
+      this.pool.on('error', (err, client) => {
+        console.error('❌ PostgreSQL: Erro inesperado no pool:', err);
+        console.error('   Detalhes:', {
+          message: err.message,
+          code: (err as any).code,
+          errno: (err as any).errno
+        });
+
+        // Se for erro de conexão, tentar reconectar
+        if ((err as any).code === 'ECONNRESET' || (err as any).code === 'ETIMEDOUT') {
+          console.log('🔄 Tentando reconectar ao PostgreSQL...');
+          this.isConnected = false;
+          // O pool vai criar novas conexões automaticamente quando necessário
+        }
+      });
+
+      this.pool.on('remove', () => {
+        console.log('ℹ️  PostgreSQL: Conexão removida do pool');
       });
 
       this.isConnected = true;
@@ -96,25 +120,50 @@ export class PostgreSQLClient {
   }
 
   /**
-   * QUERY - Executa query SQL
+   * QUERY - Executa query SQL com retry automático
    */
   public async query<T extends Record<string, any> = any>(
     sql: string,
-    params?: any[]
+    params?: any[],
+    retries: number = 2
   ): Promise<QueryResult<T>> {
     if (!this.pool || !this.isConnected) {
       throw new Error('PostgreSQL não está conectado');
     }
 
-    try {
-      const result = await this.pool.query<T>(sql, params);
-      return result;
-    } catch (error) {
-      console.error('❌ PostgreSQL query failed:', error);
-      console.error('   SQL:', sql);
-      console.error('   Params:', params);
-      throw error;
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const result = await this.pool.query<T>(sql, params);
+        return result;
+      } catch (error: any) {
+        lastError = error;
+
+        // Se for erro de conexão e ainda temos retries, tentar novamente
+        const isConnectionError =
+          error.message?.includes('Connection terminated') ||
+          error.message?.includes('ECONNRESET') ||
+          error.message?.includes('ETIMEDOUT') ||
+          error.code === 'ECONNRESET' ||
+          error.code === 'ETIMEDOUT';
+
+        if (isConnectionError && attempt < retries) {
+          console.warn(`⚠️  PostgreSQL query falhou (tentativa ${attempt + 1}/${retries + 1}), tentando novamente...`);
+          // Aguardar um pouco antes de tentar novamente
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+
+        // Se não for erro de conexão ou acabaram os retries, logar e lançar erro
+        console.error('❌ PostgreSQL query failed:', error);
+        console.error('   SQL:', sql.substring(0, 200));
+        console.error('   Params:', params);
+        throw error;
+      }
     }
+
+    throw lastError;
   }
 
   /**
