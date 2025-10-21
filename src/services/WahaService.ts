@@ -304,4 +304,119 @@ export class WahaService {
       throw error;
     }
   }
+
+  /**
+   * Gerenciamento de Sessões WAHA
+   */
+
+  /**
+   * Inicia uma nova sessão WAHA
+   */
+  public async startSession(): Promise<any> {
+    try {
+      const response = await this.api.post(`/api/sessions/${this.session}/start`, {
+        name: this.session
+      });
+      console.log(`✅ Sessão WAHA iniciada: ${this.session}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao iniciar sessão WAHA:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Para uma sessão WAHA
+   */
+  public async stopSession(): Promise<void> {
+    try {
+      await this.api.post(`/api/sessions/${this.session}/stop`);
+      console.log(`⛔ Sessão WAHA parada: ${this.session}`);
+    } catch (error: any) {
+      console.error('Erro ao parar sessão WAHA:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtém QR Code para autenticação
+   */
+  public async getQRCode(): Promise<string> {
+    try {
+      const response = await this.api.get(`/api/${this.session}/auth/qr`);
+      console.log('📱 QR Code obtido com sucesso');
+      return response.data.qr || response.data;
+    } catch (error: any) {
+      console.error('Erro ao obter QR Code:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Solicita Pairing Code (código de 8 dígitos)
+   */
+  public async requestPairingCode(phoneNumber?: string): Promise<string> {
+    try {
+      const response = await this.api.post(`/api/${this.session}/auth/request-code`, {
+        phoneNumber
+      });
+      console.log('🔢 Pairing Code obtido:', response.data.code);
+      return response.data.code;
+    } catch (error: any) {
+      console.error('Erro ao solicitar Pairing Code:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Verifica status da sessão WAHA
+   */
+  public async getSessionStatus(): Promise<any> {
+    try {
+      const response = await this.api.get(`/api/sessions/${this.session}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao obter status da sessão:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Lista todas as sessões WAHA
+   */
+  public async listSessions(): Promise<any[]> {
+    try {
+      const response = await this.api.get('/api/sessions');
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao listar sessões:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Faz logout da sessão (desconecta e limpa dados)
+   */
+  public async logout(): Promise<void> {
+    try {
+      await this.api.post(`/api/${this.session}/auth/logout`);
+      console.log(`👋 Logout realizado: ${this.session}`);
+    } catch (error: any) {
+      console.error('Erro ao fazer logout:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtém informações do usuário conectado
+   */
+  public async getMe(): Promise<any> {
+    try {
+      const response = await this.api.get(`/api/${this.session}/me`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Erro ao obter informações do usuário:', error.response?.data || error.message);
+      throw error;
+    }
+  }
 }

@@ -227,6 +227,16 @@ if (postgresClient.isPostgresConnected()) {
 }
 
 /**
+ * WhatsApp API Routes
+ */
+if (postgresClient.isPostgresConnected()) {
+  const { createWhatsAppRoutes } = require('./api/whatsapp-routes');
+  const whatsappRouter = createWhatsAppRoutes(postgresClient.getPool());
+  app.use('/api/whatsapp', whatsappRouter);
+  console.log('✅ WhatsApp API routes registered');
+}
+
+/**
  * Webhook para receber confirmações de pagamento do Asaas
  */
 app.post('/webhook/asaas', async (req: Request, res: Response) => {
