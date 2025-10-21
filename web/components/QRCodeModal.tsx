@@ -18,7 +18,7 @@ export function QRCodeModal({ open, onClose, qrCode, sessionName }: Props) {
         <DialogHeader>
           <DialogTitle>Conectar WhatsApp - {sessionName}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex flex-col items-center space-y-4 p-6">
           {qrCode ? (
             <>

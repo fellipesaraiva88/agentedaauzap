@@ -17,7 +17,7 @@ export function PairingCodeModal({ open, onClose, pairingCode, sessionName }: Pr
         <DialogHeader>
           <DialogTitle>Conectar com Código - {sessionName}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex flex-col items-center space-y-6 p-6">
           {pairingCode ? (
             <>

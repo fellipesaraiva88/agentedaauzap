@@ -51,40 +51,40 @@ export function CreateSessionModal({ open, onClose, onSuccess }: Props) {
           <DialogDescription>Configure uma nova sessão WAHA para conectar seu WhatsApp Business</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className=\"space-y-4\">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor=\"session-name\">Nome da Sessão</Label>
+            <Label htmlFor="session-name">Nome da Sessão</Label>
             <Input
-              id=\"session-name\"
+              id="session-name"
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
-              placeholder=\"Ex: principal, vendas, suporte\"
+              placeholder="Ex: principal, vendas, suporte"
               required
             />
           </div>
 
           <div>
-            <Label htmlFor=\"waha-url\">URL do WAHA</Label>
-            <Input id=\"waha-url\" value={wahaUrl} onChange={(e) => setWahaUrl(e.target.value)} required />
+            <Label htmlFor="waha-url">URL do WAHA</Label>
+            <Input id="waha-url" value={wahaUrl} onChange={(e) => setWahaUrl(e.target.value)} required />
           </div>
 
           <div>
-            <Label htmlFor=\"waha-api-key\">API Key do WAHA</Label>
+            <Label htmlFor="waha-api-key">API Key do WAHA</Label>
             <Input
-              id=\"waha-api-key\"
-              type=\"password\"
+              id="waha-api-key"
+              type="password"
               value={wahaApiKey}
               onChange={(e) => setWahaApiKey(e.target.value)}
-              placeholder=\"Cole sua API key aqui\"
+              placeholder="Cole sua API key aqui"
               required
             />
           </div>
 
-          <div className=\"flex gap-2\">
-            <Button type=\"button\" variant=\"outline\" onClick={onClose} className=\"flex-1\">
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type=\"submit\" disabled={loading} className=\"flex-1\">
+            <Button type="submit" disabled={loading} className="flex-1">
               {loading ? 'Criando...' : 'Criar Sessão'}
             </Button>
           </div>
