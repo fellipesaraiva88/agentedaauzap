@@ -56,7 +56,7 @@ export default function ConversationsPage() {
   // Buscar conversas
   const { data: conversationsData, isLoading: isLoadingConversations, refetch: refetchConversations } = useQuery({
     queryKey: ['conversations', statusFilter, searchTerm, dateRange, currentPage],
-    queryFn: () => conversationsApi.list(1, {
+    queryFn: () => conversationsApi.list({
       status: statusFilter === 'all' ? undefined : statusFilter,
       search: searchTerm || undefined,
       startDate: dateRange.start || undefined,
