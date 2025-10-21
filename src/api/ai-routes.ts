@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { jwtAuth } from '../middleware/apiAuth';
-import { asyncHandler } from '../middleware/errorHandler';
+import { requireAuth } from '../middleware/auth';
 import { PostgreSQLClient } from '../services/PostgreSQLClient';
 
 const router = Router();
@@ -14,8 +13,9 @@ const postgres = PostgreSQLClient.getInstance();
  */
 router.get(
   '/actions',
-  jwtAuth,
-  asyncHandler(async (req: any, res: Response) => {
+  requireAuth,
+  async (req: any, res: Response) => {
+    try {
     const companyId = req.companyId;
     const limit = parseInt(req.query.limit as string) || 10;
 
@@ -74,7 +74,11 @@ router.get(
       success: true,
       data: actions
     });
-  })
+    } catch (error) {
+      console.error('Error fetching AI actions:', error);
+      res.status(500).json({ error: 'Failed to fetch AI actions' });
+    }
+  }
 );
 
 /**
@@ -84,8 +88,9 @@ router.get(
  */
 router.get(
   '/stats',
-  jwtAuth,
-  asyncHandler(async (req: any, res: Response) => {
+  requireAuth,
+  async (req: any, res: Response) => {
+    try {
     const companyId = req.companyId;
 
     const last24h = new Date();
@@ -121,7 +126,11 @@ router.get(
           : 0
       }
     });
-  })
+    } catch (error) {
+      console.error('Error fetching AI stats:', error);
+      res.status(500).json({ error: 'Failed to fetch AI stats' });
+    }
+  }
 );
 
 /**

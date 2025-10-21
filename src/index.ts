@@ -19,6 +19,7 @@ import { ConversationStateManager } from './services/ConversationStateManager';
 import { PostgreSQLClient, postgresClient } from './services/PostgreSQLClient';
 import { RedisClient, redisClient } from './services/RedisClient';
 import { initializeDocumentIngestion } from './services/DocumentIngestionManager';
+import { InstancePoolManager } from './services/InstancePoolManager';
 
 // 🔐 Authentication & Security
 import { createAuthRoutes } from './api/auth-routes';
@@ -134,6 +135,16 @@ if (postgresClient.isPostgresConnected()) {
         console.log('✅ Migrations verificadas!\n');
       } catch (error: any) {
         console.warn('⚠️  Aviso ao executar migrations:', error.message, '\n');
+      }
+
+      // 🎯 Inicializar pool de instâncias WAHA
+      try {
+        console.log('🔄 Inicializando pool de instâncias WAHA...');
+        await InstancePoolManager.ensurePoolSize(10);
+        console.log('✅ Pool de instâncias WAHA pronto!\n');
+      } catch (error: any) {
+        console.error('❌ Erro ao inicializar pool de instâncias:', error.message);
+        console.warn('⚠️  Sistema continuará, mas instâncias precisarão ser criadas manualmente\n');
       }
     } else {
       console.error('❌ PostgreSQL: Teste falhou - verifique configuração\n');
@@ -518,6 +529,23 @@ app.post(WEBHOOK_PATH, webhookRateLimiter, async (req: Request, res: Response) =
     const { event, payload, session } = req.body;
 
     console.log(`📥 Webhook recebido: ${event} (sessão: ${session || 'não informada'})`);
+
+    // 🆕 POOL MANAGEMENT: Liberar instância quando desconectar
+    if (event === 'status.instance' && payload?.status === 'disconnected' && session) {
+      console.log(`🔌 Instância ${session} desconectada - verificando pool...`);
+
+      // Buscar qual usuário estava usando essa instância
+      const result = await postgresClient.query(
+        `SELECT assigned_to_user_id FROM instances WHERE name = $1 AND is_pooled = true`,
+        [session]
+      );
+
+      if (result.rows.length > 0 && result.rows[0].assigned_to_user_id) {
+        const userId = result.rows[0].assigned_to_user_id;
+        await InstancePoolManager.releaseInstance(userId);
+        console.log(`♻️  Instância ${session} devolvida ao pool`);
+      }
+    }
 
     // 🔍 DEBUG: Loga payload completo para diagnóstico de fotos
     if (event === 'message' && payload) {

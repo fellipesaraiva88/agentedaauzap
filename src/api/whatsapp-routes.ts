@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { WahaService } from '../services/WahaService';
 import { Pool } from 'pg';
+import { InstancePoolManager } from '../services/InstancePoolManager';
 
 interface SessionConfig {
   id: number;
@@ -370,6 +371,180 @@ export function createWhatsAppRoutes(db: Pool) {
     } catch (error) {
       console.error('Error sending test message:', error);
       res.status(500).json({ error: 'Failed to send test message' });
+    }
+  });
+
+  /**
+   * POST /api/whatsapp/connect
+   * 🆕 ENDPOINT SIMPLIFICADO: Conecta WhatsApp do usuário usando pool automático
+   * O usuário não precisa saber nada sobre instâncias - tudo é automático
+   */
+  router.post('/connect', async (req: Request, res: Response) => {
+    try {
+      // Pegar userId do auth middleware (assumindo que existe)
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Usuário não autenticado'
+        });
+      }
+
+      // 1. Verificar se usuário já tem uma instância atribuída
+      const existingInstance = await InstancePoolManager.getUserInstance(userId);
+
+      if (existingInstance) {
+        // Usuário já tem instância, gerar novo QR Code
+        const wahaService = new WahaService(
+          process.env.WAHA_URL || 'https://waha.devlike.pro',
+          process.env.WAHA_API_KEY || '',
+          existingInstance
+        );
+
+        const qrCode = await wahaService.getQRCode();
+
+        return res.json({
+          success: true,
+          method: 'qr',
+          qrCode,
+          instanceName: existingInstance,
+          message: 'Escaneie o QR Code com seu WhatsApp'
+        });
+      }
+
+      // 2. Pegar instância disponível do pool
+      const instanceId = await InstancePoolManager.getAvailableInstance();
+
+      if (!instanceId) {
+        return res.status(503).json({
+          error: 'Não há instâncias disponíveis no momento',
+          message: 'Tente novamente em alguns segundos. Estamos criando mais instâncias.'
+        });
+      }
+
+      // 3. Atribuir instância ao usuário
+      const assigned = await InstancePoolManager.assignToUser(instanceId, userId);
+
+      if (!assigned) {
+        return res.status(500).json({
+          error: 'Falha ao atribuir instância',
+          message: 'Tente novamente'
+        });
+      }
+
+      // 4. Buscar nome da instância
+      const instanceName = await InstancePoolManager.getUserInstance(userId);
+
+      if (!instanceName) {
+        return res.status(500).json({
+          error: 'Instância não encontrada após atribuição'
+        });
+      }
+
+      // 5. Gerar QR Code
+      const wahaService = new WahaService(
+        process.env.WAHA_URL || 'https://waha.devlike.pro',
+        process.env.WAHA_API_KEY || '',
+        instanceName
+      );
+
+      const qrCode = await wahaService.getQRCode();
+
+      res.json({
+        success: true,
+        method: 'qr',
+        qrCode,
+        instanceName,
+        message: 'Escaneie o QR Code com seu WhatsApp'
+      });
+
+    } catch (error) {
+      console.error('Error connecting WhatsApp:', error);
+      res.status(500).json({
+        error: 'Falha ao conectar WhatsApp',
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  /**
+   * POST /api/whatsapp/disconnect
+   * 🆕 Desconecta WhatsApp do usuário e devolve instância ao pool
+   */
+  router.post('/disconnect', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Usuário não autenticado'
+        });
+      }
+
+      // Liberar instância de volta ao pool
+      await InstancePoolManager.releaseInstance(userId);
+
+      res.json({
+        success: true,
+        message: 'WhatsApp desconectado com sucesso'
+      });
+
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+      res.status(500).json({
+        error: 'Falha ao desconectar WhatsApp',
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  /**
+   * GET /api/whatsapp/my-connection
+   * 🆕 Verifica status da conexão do usuário
+   */
+  router.get('/my-connection', async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Usuário não autenticado'
+        });
+      }
+
+      const instanceName = await InstancePoolManager.getUserInstance(userId);
+
+      if (!instanceName) {
+        return res.json({
+          success: true,
+          connected: false,
+          message: 'WhatsApp não conectado'
+        });
+      }
+
+      // Verificar status na WAHA
+      const wahaService = new WahaService(
+        process.env.WAHA_URL || 'https://waha.devlike.pro',
+        process.env.WAHA_API_KEY || '',
+        instanceName
+      );
+
+      const status = await wahaService.getSessionStatus();
+
+      res.json({
+        success: true,
+        connected: status.state === 'WORKING' || status.state === 'CONNECTED',
+        instanceName,
+        status: status.state,
+        phoneNumber: status.me?.id
+      });
+
+    } catch (error) {
+      console.error('Error checking connection:', error);
+      res.status(500).json({
+        error: 'Falha ao verificar conexão',
+        message: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     }
   });
 

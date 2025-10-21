@@ -14,7 +14,7 @@ export function createApiRoutes() {
   // ✅ Rotas funcionais
   const authRouter = createAuthRoutes(postgresClient.getPool()!);
   const onboardingRouter = createOnboardingRoutes();
-  const conversationsRouter = createConversationsRoutes();
+  const conversationsRouter = createConversationsRoutes(postgresClient.getPool()!);
   
   // Montar rotas
   router.use('/auth', authRouter);
