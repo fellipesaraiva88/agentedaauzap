@@ -213,6 +213,16 @@ app.get('/stats', (req: Request, res: Response) => {
 });
 
 /**
+ * Dashboard API Routes
+ */
+if (postgresClient.isPostgresConnected()) {
+  const { createDashboardRoutes } = require('./api/dashboard-routes');
+  const dashboardRouter = createDashboardRoutes(postgresClient.getPool());
+  app.use('/api/dashboard', dashboardRouter);
+  console.log('✅ Dashboard API routes registered');
+}
+
+/**
  * Webhook para receber confirmações de pagamento do Asaas
  */
 app.post('/webhook/asaas', async (req: Request, res: Response) => {
