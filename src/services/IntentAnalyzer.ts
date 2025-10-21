@@ -83,12 +83,16 @@ export class IntentAnalyzer {
     [CustomerIntent.AGENDAR_SERVICO]: {
       keywords: [
         'agendar', 'marcar', 'hora', 'horario', 'disponivel', 'vaga',
-        'queria', 'preciso', 'quero', 'gostaria', 'posso'
+        'queria', 'preciso', 'quero', 'gostaria', 'posso', 'agenda',
+        'dia', 'semana', 'mes', 'amanha', 'hoje', 'proximo',
+        'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'
       ],
       patterns: [
-        /(agendar|marcar) (banho|tosa|hotel|consulta)/gi,
-        /(quero|preciso|gostaria).*(banho|tosa|hotel|consulta)/gi,
-        /(tem|tenho|há) (vaga|horario|disponibilidade)/gi
+        /(agendar|marcar) (banho|tosa|hotel|consulta|veterinaria|vacina)/gi,
+        /(quero|preciso|gostaria).*(banho|tosa|hotel|consulta|veterinaria|vacina)/gi,
+        /(tem|tenho|há) (vaga|horario|disponibilidade)/gi,
+        /(pode|consegue|da pra|dá pra).*(agendar|marcar|hora)/gi,
+        /(amanha|hoje|segunda|terca|quarta|quinta|sexta|sabado).*(banho|tosa|hotel)/gi
       ],
       urgency: 'media'
     },

@@ -32,6 +32,14 @@ import { getQualityTracker, ResponseQualityData } from './ResponseQualityTracker
 import { getEmotionalPersistence } from './EmotionalContextPersistence';
 import { ResponseRelevanceValidator } from './ResponseRelevanceValidator';
 import { ConversationStateManager } from './ConversationStateManager';
+// 🆕 SPRINT 1: Sistema de Agendamentos
+import { AppointmentManager } from './AppointmentManager';
+import { AvailabilityManager } from './AvailabilityManager';
+import { ServiceKnowledgeManager } from './ServiceKnowledgeManager';
+import { CompanyConfigManager } from './CompanyConfigManager';
+import { CancellationRecoveryManager } from './CancellationRecoveryManager';
+import { EnhancedReminderManager } from './EnhancedReminderManager';
+import { Pool } from 'pg';
 
 /**
  * CÉREBRO DO SISTEMA: Orquestra TODOS os módulos de IA comportamental
@@ -88,6 +96,14 @@ export class MessageProcessor {
   // 💬 Gerenciador de estado de conversas (evita InstantAck duplicado)
   private conversationState: ConversationStateManager;
 
+  // 🆕 SPRINT 1: Módulos de agendamento
+  private appointmentManager?: AppointmentManager;
+  private availabilityManager?: AvailabilityManager;
+  private serviceKnowledge?: ServiceKnowledgeManager;
+  private companyConfig?: CompanyConfigManager;
+  private cancellationRecovery?: CancellationRecoveryManager;
+  private enhancedReminders?: EnhancedReminderManager;
+
   constructor(
     private wahaService: WahaService,
     private openaiService: OpenAIService,
@@ -99,7 +115,8 @@ export class MessageProcessor {
     pixDiscountManager?: PixDiscountManager,
     contextRetrieval?: ContextRetrievalService,
     onboardingManager?: OnboardingManager,
-    intentAnalyzer?: IntentAnalyzer
+    intentAnalyzer?: IntentAnalyzer,
+    db?: Pool
   ) {
     this.conversationState = conversationState;
     this.processingMessages = new Set();
@@ -145,6 +162,21 @@ export class MessageProcessor {
     this.personalizedGreeting = new PersonalizedGreeting();
     this.proofSocialEngine = new ProofSocialEngine(wahaService);
     console.log('⚡ Sprint 1 Quick Wins habilitados (saudação + prova social)!');
+
+    // 🆕 SPRINT 1: Sistema de Agendamentos
+    if (db) {
+      this.appointmentManager = new AppointmentManager(db);
+      this.availabilityManager = new AvailabilityManager(db);
+      this.serviceKnowledge = new ServiceKnowledgeManager(db);
+      this.companyConfig = new CompanyConfigManager(db);
+      this.cancellationRecovery = new CancellationRecoveryManager(
+        wahaService,
+        this.appointmentManager,
+        this.availabilityManager
+      );
+      this.enhancedReminders = new EnhancedReminderManager(db, wahaService);
+      console.log('📅 Sistema de Agendamentos completo inicializado!');
+    }
 
     console.log('🧠 MessageProcessor ULTRA-HUMANIZADO com Análise Psicológica inicializado!');
   }

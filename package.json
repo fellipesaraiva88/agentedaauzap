@@ -11,7 +11,10 @@
     "migrate:postgres": "ts-node src/scripts/migrate-postgres.ts",
     "migrate:check": "ts-node src/scripts/migrate-postgres.ts --check-only",
     "migrate:force": "ts-node src/scripts/migrate-postgres.ts --force",
-    "validate:schema": "ts-node src/scripts/validate-schema.ts"
+    "migrate": "ts-node src/scripts/run-migration.ts",
+    "migrate:005": "ts-node src/scripts/run-migration.ts 005",
+    "validate:schema": "ts-node src/scripts/validate-schema.ts",
+    "test:appointments": "ts-node src/test/appointment-test.ts"
   },
   "keywords": [
     "whatsapp",
