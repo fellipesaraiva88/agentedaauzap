@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { appointmentsApi } from '@/lib/api'
+import { appointmentsApi, dashboardApi } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import { TrendingUp, TrendingDown, DollarSign, Calendar, Users, AlertCircle } from 'lucide-react'
@@ -9,7 +9,7 @@ import { TrendingUp, TrendingDown, DollarSign, Calendar, Users, AlertCircle } fr
 export default function StatsPage() {
   const { data: stats } = useQuery({
     queryKey: ['stats'],
-    queryFn: () => appointmentsApi.getStats(),
+    queryFn: () => dashboardApi.getStats(),
   })
 
   const { data: appointmentsData } = useQuery({

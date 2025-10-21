@@ -36,6 +36,7 @@ export class CustomerMemoryDB {
 
   /**
    * 🚀 Obtém ou cria perfil de usuário (COM CACHE REDIS)
+   * ATUALIZADO: Suporta multi-tenancy com company_id
    *
    * Fluxo otimizado:
    * 1. Tenta cache Redis (< 1ms) ✅
@@ -44,24 +45,26 @@ export class CustomerMemoryDB {
    *
    * Performance: 10-100x mais rápido com cache hit!
    */
-  public async getOrCreateProfile(chatId: string): Promise<UserProfile> {
-    // 1️⃣ CACHE LAYER - Tenta Redis primeiro
+  public async getOrCreateProfile(chatId: string, companyId: number = 1): Promise<UserProfile> {
+    // 1️⃣ CACHE LAYER - Tenta Redis primeiro (com company_id no cache key)
     if (this.redis?.isRedisConnected()) {
-      const cached = await this.redis.getCachedProfile(chatId);
+      const cacheKey = `${companyId}:${chatId}`;
+      const cached = await this.redis.getCachedProfile(cacheKey);
       if (cached) {
-        // console.log(`✅ Cache HIT: ${chatId} (< 1ms)`);
+        // console.log(`✅ Cache HIT: ${cacheKey} (< 1ms)`);
         return cached;
       }
-      // console.log(`⚠️ Cache MISS: ${chatId} - buscando do banco...`);
+      // console.log(`⚠️ Cache MISS: ${cacheKey} - buscando do banco...`);
     }
 
-    // 2️⃣ DATABASE LAYER - Busca do PostgreSQL
-    const profile = await this.getOrCreateProfileFromDB(chatId);
+    // 2️⃣ DATABASE LAYER - Busca do PostgreSQL com company_id
+    const profile = await this.getOrCreateProfileFromDB(chatId, companyId);
 
     // 3️⃣ CACHE UPDATE - Salva no Redis para próximas consultas
     if (this.redis?.isRedisConnected()) {
-      await this.redis.cacheProfile(chatId, profile);
-      // console.log(`💾 Profile cached: ${chatId} (TTL: 1h)`);
+      const cacheKey = `${companyId}:${chatId}`;
+      await this.redis.cacheProfile(cacheKey, profile);
+      // console.log(`💾 Profile cached: ${cacheKey} (TTL: 1h)`);
     }
 
     return profile;
@@ -69,23 +72,25 @@ export class CustomerMemoryDB {
 
   /**
    * 🐘 Obtém ou cria perfil (POSTGRESQL)
+   * ATUALIZADO: Suporta multi-tenancy com company_id
    */
-  private async getOrCreateProfileFromDB(chatId: string): Promise<UserProfile> {
+  private async getOrCreateProfileFromDB(chatId: string, companyId: number = 1): Promise<UserProfile> {
     try {
-      // Busca perfil existente
+      // Busca perfil existente com company_id
       const existing = await this.postgres.getOne<any>(
-        `SELECT * FROM user_profiles WHERE chat_id = $1`,
-        [chatId]
+        `SELECT * FROM user_profiles WHERE chat_id = $1 AND company_id = $2`,
+        [chatId, companyId]
       );
 
       if (existing) {
         return this.rowToUserProfile(existing);
       }
 
-      // Cria novo perfil
+      // Cria novo perfil com company_id
       const now = Date.now();
       const newProfile = await this.postgres.insert<any>('user_profiles', {
         chat_id: chatId,
+        company_id: companyId,
         last_message_timestamp: now
       });
 
@@ -162,11 +167,13 @@ export class CustomerMemoryDB {
 
   /**
    * Adiciona tempo de resposta ao histórico
+   * ATUALIZADO: Suporta multi-tenancy
    */
-  public async addResponseTime(chatId: string, responseTime: number): Promise<void> {
+  public async addResponseTime(chatId: string, responseTime: number, companyId: number = 1): Promise<void> {
     try {
       await this.postgres.insert('response_times', {
         chat_id: chatId,
+        company_id: companyId,
         response_time: responseTime
       });
 
@@ -179,15 +186,16 @@ export class CustomerMemoryDB {
 
   /**
    * Obtém histórico de tempos de resposta
+   * ATUALIZADO: Suporta multi-tenancy
    */
-  public async getResponseTimeHistory(chatId: string): Promise<number[]> {
+  public async getResponseTimeHistory(chatId: string, companyId: number = 1): Promise<number[]> {
     try {
       const result = await this.postgres.query<any>(
         `SELECT response_time FROM response_times
-         WHERE chat_id = $1
+         WHERE chat_id = $1 AND company_id = $2
          ORDER BY timestamp DESC
          LIMIT 50`,
-        [chatId]
+        [chatId, companyId]
       );
 
       return result.rows?.map(r => r.response_time) || [];

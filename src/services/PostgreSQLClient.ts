@@ -262,6 +262,97 @@ export class PostgreSQLClient {
       console.log('✅ PostgreSQL: Conexões fechadas');
     }
   }
+
+  /**
+   * SET TENANT CONTEXT - Define o tenant (company_id) atual para Row Level Security
+   */
+  public async setTenantContext(companyId: number): Promise<void> {
+    if (!this.pool || !this.isConnected) {
+      throw new Error('PostgreSQL não está conectado');
+    }
+
+    try {
+      await this.pool.query('SELECT set_current_company($1)', [companyId]);
+    } catch (error) {
+      console.error('❌ PostgreSQL: Erro ao setar tenant context:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * EXECUTE WITH TENANT - Executa uma função com tenant context garantido
+   * Útil para garantir isolamento de dados em operações complexas
+   */
+  public async executeWithTenant<T>(
+    companyId: number,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    if (!this.pool || !this.isConnected) {
+      throw new Error('PostgreSQL não está conectado');
+    }
+
+    try {
+      // Setar contexto do tenant
+      await this.setTenantContext(companyId);
+
+      // Executar callback
+      return await callback();
+    } catch (error) {
+      console.error('❌ PostgreSQL: Erro ao executar com tenant context:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * TRANSACTION WITH TENANT - Executa transação com tenant context garantido
+   * Garante que todas as operações na transação usem o mesmo tenant
+   */
+  public async transactionWithTenant<T>(
+    companyId: number,
+    callback: (client: PoolClient) => Promise<T>
+  ): Promise<T> {
+    if (!this.pool || !this.isConnected) {
+      throw new Error('PostgreSQL não está conectado');
+    }
+
+    const client = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // Setar contexto do tenant na transação
+      await client.query('SELECT set_current_company($1)', [companyId]);
+
+      // Executar callback
+      const result = await callback(client);
+
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('❌ PostgreSQL: Transaction with tenant rollback:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * GET TENANT CONTEXT - Retorna o tenant atual configurado na sessão
+   */
+  public async getTenantContext(): Promise<number | null> {
+    if (!this.pool || !this.isConnected) {
+      return null;
+    }
+
+    try {
+      const result = await this.pool.query('SELECT get_current_company() as company_id');
+      return result.rows[0]?.company_id || null;
+    } catch (error) {
+      console.error('❌ PostgreSQL: Erro ao obter tenant context:', error);
+      return null;
+    }
+  }
 }
 
 /**

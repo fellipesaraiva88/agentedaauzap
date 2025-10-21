@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import { WahaService } from './services/WahaService';
 import { OpenAIService } from './services/OpenAIService';
 import { HumanDelay } from './services/HumanDelay';
@@ -17,6 +18,12 @@ import { ConversationStateManager } from './services/ConversationStateManager';
 import { PostgreSQLClient, postgresClient } from './services/PostgreSQLClient';
 import { RedisClient, redisClient } from './services/RedisClient';
 import { initializeDocumentIngestion } from './services/DocumentIngestionManager';
+
+// 🔐 Authentication & Security
+import { createAuthRoutes } from './api/auth-routes';
+import { requireAuth } from './middleware/auth';
+import { tenantContextMiddleware } from './middleware/tenantContext';
+import { globalRateLimiter, webhookRateLimiter } from './middleware/rateLimiter';
 
 // Carrega variáveis de ambiente
 dotenv.config();
@@ -202,7 +209,25 @@ if (USE_LANGCHAIN_V2) {
 
 // Inicializa Express
 const app = express();
-app.use(express.json());
+
+// 🛡️ SECURITY HEADERS (Helmet)
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production',
+  crossOriginEmbedderPolicy: false, // Permite embeds do WhatsApp
+  hsts: {
+    maxAge: 31536000, // 1 ano
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// 📦 Body Parser
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ⚡ GLOBAL RATE LIMITING (100 req/15min)
+// Aplicado a todas as rotas, exceto webhook e static assets
+app.use(globalRateLimiter);
 
 /**
  * Endpoint de health check
@@ -244,24 +269,53 @@ app.get('/stats', (req: Request, res: Response) => {
   });
 });
 
-/**
- * Dashboard API Routes
- */
+// ================================================================
+// 🔐 AUTHENTICATION ROUTES (Public - No Auth Required)
+// ================================================================
 if (postgresClient.isPostgresConnected()) {
-  const { createDashboardRoutes } = require('./api/dashboard-routes');
-  const dashboardRouter = createDashboardRoutes(postgresClient.getPool());
-  app.use('/api/dashboard', dashboardRouter);
-  console.log('✅ Dashboard API routes registered');
+  const authRouter = createAuthRoutes(postgresClient.getPool()!);
+  app.use('/api/auth', authRouter);
+  console.log('✅ Authentication API routes registered');
+  console.log('   POST /api/auth/register - Create account');
+  console.log('   POST /api/auth/login - Login');
+  console.log('   POST /api/auth/refresh - Refresh token');
+  console.log('   POST /api/auth/logout - Logout');
+  console.log('   GET  /api/auth/me - Current user\n');
 }
 
-/**
- * WhatsApp API Routes
- */
+// ================================================================
+// 🏢 PROTECTED ROUTES (Require Auth + Tenant Context)
+// ================================================================
 if (postgresClient.isPostgresConnected()) {
+  const db = postgresClient.getPool()!;
+
+  /**
+   * Dashboard API Routes
+   * Requires: Authentication + Tenant Context
+   */
+  const { createDashboardRoutes } = require('./api/dashboard-routes');
+  const dashboardRouter = createDashboardRoutes(db);
+
+  app.use('/api/dashboard',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    dashboardRouter
+  );
+  console.log('✅ Dashboard API routes registered (protected)');
+
+  /**
+   * WhatsApp API Routes
+   * Requires: Authentication + Tenant Context
+   */
   const { createWhatsAppRoutes } = require('./api/whatsapp-routes');
-  const whatsappRouter = createWhatsAppRoutes(postgresClient.getPool());
-  app.use('/api/whatsapp', whatsappRouter);
-  console.log('✅ WhatsApp API routes registered');
+  const whatsappRouter = createWhatsAppRoutes(db);
+
+  app.use('/api/whatsapp',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    whatsappRouter
+  );
+  console.log('✅ WhatsApp API routes registered (protected)');
 }
 
 /**
@@ -324,8 +378,9 @@ app.post('/webhook/asaas', async (req: Request, res: Response) => {
 
 /**
  * Webhook para receber mensagens do WAHA
+ * Rate limited to 500 req/min
  */
-app.post(WEBHOOK_PATH, async (req: Request, res: Response) => {
+app.post(WEBHOOK_PATH, webhookRateLimiter, async (req: Request, res: Response) => {
   try {
     const { event, payload, session } = req.body;
 
