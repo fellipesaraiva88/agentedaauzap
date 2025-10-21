@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { servicesApi } from '@/lib/api'
+import { servicesApi, type Service } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
@@ -13,7 +13,7 @@ export default function ServicesPage() {
     queryFn: () => servicesApi.list(),
   })
 
-  const categorias = Array.from(new Set(servicesData?.data.map((s) => s.categoria) || []))
+  const categorias = Array.from(new Set(servicesData?.data.map((s: Service) => s.categoria) || []))
 
   return (
     <div className="space-y-6">
