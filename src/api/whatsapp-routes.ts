@@ -29,7 +29,8 @@ export function createWhatsAppRoutes(db: Pool) {
       const companyId = Number(req.query.companyId) || 1;
 
       const result = await db.query(
-        `SELECT * FROM whatsapp_sessions WHERE company_id = $1 ORDER BY created_at DESC`,
+        `SELECT id, company_id, session_name, waha_url, status, phone_number, last_connected, created_at, updated_at
+         FROM whatsapp_sessions WHERE company_id = $1 ORDER BY created_at DESC`,
         [companyId]
       );
 

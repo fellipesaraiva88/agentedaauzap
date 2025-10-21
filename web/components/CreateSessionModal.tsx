@@ -17,7 +17,7 @@ interface Props {
 
 export function CreateSessionModal({ open, onClose, onSuccess }: Props) {
   const [sessionName, setSessionName] = useState('')
-  const [wahaUrl, setWahaUrl] = useState('https://waha.devlike.pro')
+  const [wahaUrl, setWahaUrl] = useState('https://pange-waha.u5qiqp.easypanel.host')
   const [wahaApiKey, setWahaApiKey] = useState('')
   const [loading, setLoading] = useState(false)
 
