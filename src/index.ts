@@ -358,8 +358,7 @@ if (postgresClient.isPostgresConnected()) {
    * Services API Routes
    * Requires: Authentication + Tenant Context
    */
-  const { createServicesRoutes } = require('./api/services-routes');
-  const servicesRouter = createServicesRoutes(db);
+  const servicesRouter = require('./api/services-routes').default;
 
   app.use('/api/services',
     requireAuth(),                    // 1. Validate JWT

@@ -1,12 +1,16 @@
 import axios from 'axios'
 
+// API URL configuration - defaults to local backend
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
+console.log('🔗 API conectando em:', API_URL)
 
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: false, // Altere para true se usar cookies
 })
 
 // Multitenancy interceptor - adds companyId to all requests
