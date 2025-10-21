@@ -44,6 +44,9 @@ export class PostgreSQLClient {
         max: 20, // máximo de conexões no pool
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
+        ssl: {
+          rejectUnauthorized: false // Necessário para Render e outros serviços cloud
+        }
       });
 
       // Event handlers
