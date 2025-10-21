@@ -164,46 +164,6 @@ export class WahaService {
   }
 
   /**
-   * Verifica status da sessão
-   */
-  public async getSessionStatus(): Promise<any> {
-    try {
-      const response = await this.api.get(`/api/sessions/${this.session}`);
-      return response.data;
-    } catch (error: any) {
-      console.error('Erro ao verificar status:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Inicia sessão do WhatsApp
-   */
-  public async startSession(): Promise<any> {
-    try {
-      const response = await this.api.post(`/api/sessions/${this.session}/start`);
-      console.log('📱 Sessão iniciada');
-      return response.data;
-    } catch (error: any) {
-      console.error('Erro ao iniciar sessão:', error.response?.data || error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtém QR Code para autenticação
-   */
-  public async getQRCode(): Promise<string | null> {
-    try {
-      const response = await this.api.get(`/api/${this.session}/auth/qr`);
-      return response.data?.qr || null;
-    } catch (error: any) {
-      console.error('Erro ao obter QR Code:', error.response?.data || error.message);
-      return null;
-    }
-  }
-
-  /**
    * Marca mensagem como lida
    */
   public async markAsRead(chatId: string, messageId?: string): Promise<void> {
