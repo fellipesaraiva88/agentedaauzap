@@ -9,149 +9,89 @@ export const api = axios.create({
   },
 })
 
-export interface Appointment {
-  id: number
-  companyId: number
-  chatId: string
-  serviceId: number
-  serviceName: string
-  tutorNome: string
-  tutorTelefone?: string
-  petNome: string
-  petTipo: string
-  petRaca?: string
-  petIdade?: number
-  petPorte?: 'pequeno' | 'medio' | 'grande'
-  dataAgendamento: string
-  horaAgendamento: string
-  status: 'pendente' | 'confirmado' | 'em_atendimento' | 'concluido' | 'cancelado' | 'nao_compareceu'
-  preco: number
-  observacoes?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Service {
-  id: number
-  companyId: number
-  nome: string
-  descricao: string
-  categoria: string
-  duracaoMinutos: number
-  precos: {
-    pequeno?: number
-    medio?: number
-    grande?: number
-  }
-  ativo: boolean
-  upsellSuggestions?: string[]
-}
-
-export interface AppointmentStats {
-  total: number
-  concluidos: number
-  cancelados: number
-  pendentes: number
-  receitaTotal: number
-  valorMedio: number
-}
-
-export interface AvailabilitySlot {
-  hora_inicio: string
-  hora_fim: string
-  disponivel: boolean
-  agendamentos_existentes: number
-  capacidade_maxima: number
-}
-
-export const appointmentsApi = {
-  list: async (params?: {
-    companyId?: number
-    chatId?: string
-    status?: string
-    dataInicio?: string
-    dataFim?: string
-    serviceId?: number
-  }) => {
-    const { data } = await api.get<{ success: boolean; data: Appointment[]; total: number }>('/appointments', { params })
-    return data
+// Dashboard APIs
+export const dashboardApi = {
+  getStats: async (companyId: number = 1) => {
+    const response = await api.get(`/dashboard/stats?companyId=${companyId}`)
+    return response.data
   },
 
-  getById: async (id: number) => {
-    const { data } = await api.get<{ success: boolean; data: Appointment }>(`/appointments/${id}`)
-    return data
+  getImpact: async (companyId: number = 1) => {
+    const response = await api.get(`/dashboard/impact?companyId=${companyId}`)
+    return response.data
   },
 
-  create: async (appointment: Partial<Appointment>) => {
-    const { data } = await api.post<{ success: boolean; appointment: Appointment }>('/appointments', appointment)
-    return data
+  getOvernight: async (companyId: number = 1) => {
+    const response = await api.get(`/dashboard/overnight?companyId=${companyId}`)
+    return response.data
   },
 
-  cancel: async (id: number, motivo?: string) => {
-    const { data } = await api.patch<{ success: boolean }>(`/appointments/${id}/cancel`, { motivo })
-    return data
+  getActions: async (companyId: number = 1, limit: number = 10) => {
+    const response = await api.get(`/dashboard/actions?companyId=${companyId}&limit=${limit}`)
+    return response.data
   },
 
-  reschedule: async (id: number, dataAgendamento: string, horaAgendamento: string) => {
-    const { data } = await api.patch<{ success: boolean }>(`/appointments/${id}/reschedule`, {
-      dataAgendamento,
-      horaAgendamento,
-    })
-    return data
+  getRevenueTimeline: async (companyId: number = 1, days: number = 7) => {
+    const response = await api.get(`/dashboard/revenue-timeline?companyId=${companyId}&days=${days}`)
+    return response.data
   },
 
-  updateStatus: async (id: number, status: Appointment['status']) => {
-    const { data } = await api.patch<{ success: boolean }>(`/appointments/${id}/status`, { status })
-    return data
-  },
-
-  getToday: async (companyId?: number) => {
-    const { data } = await api.get<{ success: boolean; data: Appointment[] }>('/appointments/special/today', {
-      params: { companyId },
-    })
-    return data
-  },
-
-  getStats: async (params?: { companyId?: number; dataInicio?: string; dataFim?: string }) => {
-    const { data } = await api.get<{ success: boolean; data: AppointmentStats }>('/appointments/special/stats', {
-      params,
-    })
-    return data
+  getAutomation: async (companyId: number = 1, days: number = 30) => {
+    const response = await api.get(`/dashboard/automation?companyId=${companyId}&days=${days}`)
+    return response.data
   },
 }
 
-export const servicesApi = {
-  list: async (companyId?: number) => {
-    const { data } = await api.get<{ success: boolean; data: Service[]; total: number }>('/services', {
-      params: { companyId },
-    })
-    return data
+// WhatsApp APIs
+export const whatsappApi = {
+  getSessions: async (companyId: number = 1) => {
+    const response = await api.get(`/whatsapp/sessions?companyId=${companyId}`)
+    return response.data.sessions
   },
-}
 
-export const availabilityApi = {
-  check: async (params: {
+  createSession: async (data: {
     companyId: number
-    serviceId: number
-    dataAgendamento: string
-    horaAgendamento: string
+    sessionName: string
+    wahaUrl: string
+    wahaApiKey: string
   }) => {
-    const { data } = await api.post<{
-      success: boolean
-      data: {
-        disponivel: boolean
-        motivo?: string
-        sugestoes: string[]
-      }
-    }>('/availability/check', params)
-    return data
+    const response = await api.post('/whatsapp/sessions', data)
+    return response.data.session
   },
 
-  getSlots: async (params: { companyId?: number; serviceId: number; data: string; intervalo?: number }) => {
-    const { data } = await api.get<{ success: boolean; data: AvailabilitySlot[]; total: number; available: number }>(
-      '/availability/slots',
-      { params }
-    )
-    return data
+  startSession: async (sessionId: number, method: 'qr' | 'pairing') => {
+    const response = await api.post(`/whatsapp/sessions/${sessionId}/start`, { method })
+    return response.data
+  },
+
+  getSessionStatus: async (sessionId: number) => {
+    const response = await api.get(`/whatsapp/sessions/${sessionId}/status`)
+    return response.data
+  },
+
+  stopSession: async (sessionId: number) => {
+    const response = await api.post(`/whatsapp/sessions/${sessionId}/stop`)
+    return response.data
+  },
+
+  deleteSession: async (sessionId: number) => {
+    const response = await api.delete(`/whatsapp/sessions/${sessionId}`)
+    return response.data
+  },
+
+  testSession: async (sessionId: number, phoneNumber: string, message?: string) => {
+    const response = await api.post(`/whatsapp/sessions/${sessionId}/test`, {
+      phoneNumber,
+      message,
+    })
+    return response.data
+  },
+}
+
+// Health check
+export const healthApi = {
+  check: async () => {
+    const response = await api.get('/health', { baseURL: API_URL.replace('/api', '') })
+    return response.data
   },
 }
