@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { appointmentsApi, servicesApi, type Appointment } from '@/lib/api'
+import { appointmentsApi, servicesApi, type Appointment, type Service } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -104,7 +104,7 @@ export default function AppointmentsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os serviços</SelectItem>
-                {servicesData?.data.map((service) => (
+                {servicesData?.data.map((service: Service) => (
                   <SelectItem key={service.id} value={service.id.toString()}>
                     {service.nome}
                   </SelectItem>
