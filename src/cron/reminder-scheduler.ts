@@ -27,6 +27,7 @@ const db = new Pool({
 
 const wahaService = new WahaService(
   process.env.WAHA_URL || '',
+  process.env.WAHA_API_KEY || '',
   process.env.WAHA_SESSION || 'default'
 );
 
