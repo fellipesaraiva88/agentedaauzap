@@ -1,0 +1,54 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: agentedaauzap-db
+    env: docker
+    plan: free
+    region: oregon
+    databases:
+      - name: agentedaauzap
+        databaseName: agentedaauzap
+        user: agentedaauzap
+
+  # Backend API
+  - type: web
+    name: agentedaauzap-api
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agentedaauzap-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: WAHA_URL
+        value: https://waha.devlike.pro
+      - key: WAHA_API_KEY
+        sync: false
+    healthCheckPath: /health
+
+  # Frontend Web App
+  - type: web
+    name: agentedaauzap-web
+    env: static
+    region: oregon
+    buildCommand: cd web && npm install && npm run build
+    staticPublishPath: web/out
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: agentedaauzap-api
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

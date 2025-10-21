@@ -4,7 +4,7 @@
   "description": "Agente humanizado de WhatsApp para pet shop usando WAHA e OpenAI",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && mkdir -p dist/database && cp src/database/postgres-schema.sql dist/database/postgres-schema.sql",
+    "build": "tsc && mkdir -p dist/database && cp src/database/postgres-schema.sql dist/database/postgres-schema.sql && cp -r migrations dist/",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "watch": "tsc -w",
@@ -15,7 +15,8 @@
     "migrate:005": "ts-node src/scripts/run-migration.ts 005",
     "validate:schema": "ts-node src/scripts/validate-schema.ts",
     "test:appointments": "ts-node src/test/appointment-test.ts",
-    "cron:reminders": "ts-node src/cron/reminder-scheduler.ts"
+    "cron:reminders": "ts-node src/cron/reminder-scheduler.ts",
+    "postinstall": "npm run migrate || true"
   },
   "keywords": [
     "whatsapp",

@@ -2,16 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  env: {
-    API_URL: process.env.API_URL || 'http://localhost:3000/api',
+  output: 'export',
+  images: {
+    unoptimized: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3000/api/:path*',
-      },
-    ]
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   },
 }
 
