@@ -16,11 +16,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import toast from 'react-hot-toast'
 
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ clientId: string }>
 }
 
 export default function EditClientPage({ params }: PageProps) {
-  const { id } = use(params)
+  const { clientId: id } = use(params)
   const router = useRouter()
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')

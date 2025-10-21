@@ -30,11 +30,11 @@ import { useRouter } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: Promise<{ clientId: string }>
 }
 
 export default function ClientDetailPage({ params }: PageProps) {
-  const { id } = use(params)
+  const { clientId: id } = use(params)
   const router = useRouter()
 
   // Fetch tutor data
