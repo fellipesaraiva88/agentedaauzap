@@ -163,7 +163,8 @@ if (USE_LANGCHAIN_V2) {
     pixDiscountManager,
     contextRetrieval,
     onboardingManager,
-    intentAnalyzer
+    intentAnalyzer,
+    dbPool // 🆕 Passar db pool para agendamentos
   );
 }
 

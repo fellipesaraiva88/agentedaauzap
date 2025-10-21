@@ -9,11 +9,10 @@
  * - Gerar relatórios
  *
  * Uso:
- *   # Processar lembretes agora
- *   ts-node src/cron/reminder-scheduler.ts
+ *   npm run cron:reminders
  *
- *   # Agendar no crontab (a cada 5 minutos)
- *   */5 * * * * cd /path/to/app && npm run cron:reminders
+ *   Agendar no crontab (a cada 5 minutos):
+ *   Ver crontab.example para configuração
  */
 
 import { Pool } from 'pg';
