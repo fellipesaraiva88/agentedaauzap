@@ -143,6 +143,52 @@ export function createWhatsAppRoutes(db: Pool) {
   });
 
   /**
+   * GET /api/whatsapp/status
+   * Retorna status geral do WhatsApp (primeira sessão ativa)
+   */
+  router.get('/status', async (req: Request, res: Response) => {
+    try {
+      const companyId = Number(req.query.companyId) || 1;
+
+      const result = await db.query(
+        `SELECT id, session_name, status, phone_number, last_connected
+         FROM whatsapp_sessions
+         WHERE company_id = $1
+         ORDER BY last_connected DESC NULLS LAST, id DESC
+         LIMIT 1`,
+        [companyId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            status: 'disconnected',
+            message: 'Nenhuma sessão WhatsApp configurada'
+          }
+        });
+      }
+
+      const session = result.rows[0];
+      res.json({
+        success: true,
+        data: {
+          status: session.status,
+          sessionName: session.session_name,
+          phoneNumber: session.phone_number,
+          lastConnected: session.last_connected
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching WhatsApp status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch WhatsApp status'
+      });
+    }
+  });
+
+  /**
    * GET /api/whatsapp/sessions/:id/status
    * Verifica status da sessão WAHA
    */
@@ -329,3 +375,4 @@ export function createWhatsAppRoutes(db: Pool) {
 
   return router;
 }
+export default createWhatsAppRoutes;

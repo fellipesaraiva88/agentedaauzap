@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import cors from 'cors';
 import { WahaService } from './services/WahaService';
 import { OpenAIService } from './services/OpenAIService';
 import { HumanDelay } from './services/HumanDelay';
@@ -225,6 +226,28 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// 🌐 CORS Configuration - Lista explícita de headers (credentials: true não permite wildcard)
+app.use(cors({
+  origin: ['http://localhost:3001', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-CSRF-Token',
+    'x-csrf-token',
+    'X-Requested-With',
+    'x-requested-with',
+    'X-Content-Type-Options',
+    'x-content-type-options',
+    'Accept',
+    'Origin',
+    'Referer',
+    'User-Agent'
+  ],
+  exposedHeaders: ['Authorization']
+}));
+
 // ⚡ GLOBAL RATE LIMITING (100 req/15min)
 // Aplicado a todas as rotas, exceto webhook e static assets
 app.use(globalRateLimiter);
@@ -332,6 +355,20 @@ if (postgresClient.isPostgresConnected()) {
   console.log('✅ Appointments API routes registered (protected)');
 
   /**
+   * Services API Routes
+   * Requires: Authentication + Tenant Context
+   */
+  const { createServicesRoutes } = require('./api/services-routes');
+  const servicesRouter = createServicesRoutes(db);
+
+  app.use('/api/services',
+    requireAuth(),                    // 1. Validate JWT
+    tenantContextMiddleware(db),      // 2. Set tenant context
+    servicesRouter
+  );
+  console.log('✅ Services API routes registered (protected)');
+
+  /**
    * Conversations API Routes
    * Requires: Authentication + Tenant Context
    */
@@ -360,18 +397,28 @@ if (postgresClient.isPostgresConnected()) {
   console.log('✅ Settings API routes registered (protected)');
 
   /**
-   * Companies API Route (Public endpoint for listing companies)
+   * Companies API Routes
+   * Requires: Authentication
    */
-  app.get('/api/companies', async (req, res) => {
-    try {
-      const result = await db.query('SELECT id, name, slug FROM companies ORDER BY name');
-      res.json({ success: true, data: result.rows });
-    } catch (error) {
-      console.error('Error fetching companies:', error);
-      res.status(500).json({ success: false, error: 'Failed to fetch companies' });
-    }
-  });
-  console.log('✅ Companies API endpoint registered (public)');
+  const companiesRouter = require('./api/companies-routes').default;
+  app.use('/api/companies', companiesRouter);
+  console.log('✅ Companies API routes registered (protected)');
+
+  /**
+   * Stats API Routes
+   * Requires: Authentication
+   */
+  const statsRouter = require('./api/stats-routes').default;
+  app.use('/api/stats', statsRouter);
+  console.log('✅ Stats API routes registered (protected)');
+
+  /**
+   * AI API Routes
+   * Requires: Authentication
+   */
+  const aiRouter = require('./api/ai-routes').default;
+  app.use('/api/ai', aiRouter);
+  console.log('✅ AI API routes registered (protected)');
 }
 
 /**
