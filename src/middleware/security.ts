@@ -53,10 +53,10 @@ export function securityHeaders() {
         objectSrc: ["'none'"],
         frameSrc: ["'none'"],
         baseUri: ["'self'"],
-        formAction: ["'self'"],
-        frameAncestors: ["'none'"],
-        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : undefined
-      }
+        formAction: ["'self'"]
+        // frameAncestors: ["'none'"], // Removido - conflito com helmet types
+        // upgradeInsecureRequests removido - não compatível com development
+      } as any
     },
 
     // Cross Origin Embedder Policy
@@ -70,12 +70,6 @@ export function securityHeaders() {
 
     // DNS Prefetch Control
     dnsPrefetchControl: { allow: false },
-
-    // Expect-CT (Certificate Transparency)
-    expectCt: {
-      enforce: true,
-      maxAge: 86400 // 24 horas
-    },
 
     // Frameguard (X-Frame-Options)
     frameguard: { action: 'deny' },
@@ -184,18 +178,20 @@ export function contentTypeValidation(
   const contentType = req.headers['content-type'];
 
   if (!contentType) {
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       error: 'Content-Type header is required'
     });
+    return void 0;
   }
 
   // Aceita apenas JSON para APIs
   if (req.path.startsWith('/api/') && !contentType.includes('application/json')) {
-    return res.status(415).json({
+    res.status(415).json({
       success: false,
       error: 'Unsupported Media Type. Use application/json'
     });
+    return void 0;
   }
 
   next();
@@ -251,10 +247,11 @@ export function securityMonitoring(
 
       // Opcional: bloquear requisição suspeita
       if (process.env.BLOCK_SUSPICIOUS_REQUESTS === 'true') {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: 'Invalid request'
         });
+        return void 0;
       }
     }
   }

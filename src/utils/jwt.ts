@@ -8,20 +8,44 @@ import jwt from 'jsonwebtoken';
  */
 
 // Secrets (OBRIGATÓRIOS em produção)
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || (() => {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_ACCESS_SECRET must be set in production environment');
+const ACCESS_TOKEN_SECRET = (() => {
+  const secret = process.env.JWT_ACCESS_SECRET;
+
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: JWT_ACCESS_SECRET must be set in production environment');
+    }
+    // Em desenvolvimento, gera um secret aleatório na inicialização
+    console.warn('⚠️  JWT_ACCESS_SECRET not set - generating random secret for development');
+    return require('crypto').randomBytes(64).toString('hex');
   }
-  console.warn('⚠️  Using default JWT_ACCESS_SECRET - ONLY for development');
-  return 'dev-only-access-secret-DO-NOT-USE-IN-PRODUCTION';
+
+  // Validar força do secret
+  if (secret.length < 32) {
+    throw new Error('JWT_ACCESS_SECRET must be at least 32 characters long');
+  }
+
+  return secret;
 })();
 
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || (() => {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_REFRESH_SECRET must be set in production environment');
+const REFRESH_TOKEN_SECRET = (() => {
+  const secret = process.env.JWT_REFRESH_SECRET;
+
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('CRITICAL SECURITY ERROR: JWT_REFRESH_SECRET must be set in production environment');
+    }
+    // Em desenvolvimento, gera um secret aleatório na inicialização
+    console.warn('⚠️  JWT_REFRESH_SECRET not set - generating random secret for development');
+    return require('crypto').randomBytes(64).toString('hex');
   }
-  console.warn('⚠️  Using default JWT_REFRESH_SECRET - ONLY for development');
-  return 'dev-only-refresh-secret-DO-NOT-USE-IN-PRODUCTION';
+
+  // Validar força do secret
+  if (secret.length < 32) {
+    throw new Error('JWT_REFRESH_SECRET must be at least 32 characters long');
+  }
+
+  return secret;
 })();
 
 // Expiração dos tokens

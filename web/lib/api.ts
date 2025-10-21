@@ -1,66 +1,218 @@
-import axios from 'axios'
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios'
+import toast from 'react-hot-toast'
 
-// API URL configuration - defaults to local backend
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+// ============================================================================
+// CONFIGURATION & VALIDATION
+// ============================================================================
 
-console.log('🔗 API conectando em:', API_URL)
+/**
+ * Validate and return API URL
+ * Ensures API_URL is properly configured
+ */
+const getApiUrl = (): string => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+
+  // Validation: Check if URL is valid
+  try {
+    new URL(apiUrl)
+  } catch (error) {
+    console.error('Invalid API_URL:', apiUrl)
+    throw new Error('NEXT_PUBLIC_API_URL must be a valid URL')
+  }
+
+  console.log('🔗 API conectando em:', apiUrl)
+  return apiUrl
+}
+
+const API_URL = getApiUrl()
+
+// ============================================================================
+// AXIOS INSTANCE WITH OPTIMIZED CONFIGURATION
+// ============================================================================
 
 export const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30 seconds timeout
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
-  withCredentials: false, // Altere para true se usar cookies
+  withCredentials: false, // Set to true if using cookies for auth
 })
 
-// Multitenancy interceptor - adds companyId to all requests
-api.interceptors.request.use(
-  (config) => {
-    // Get current company ID from localStorage
-    const companyId = localStorage.getItem('selectedCompanyId')
+// ============================================================================
+// REQUEST INTERCEPTOR - Authentication & Company Context
+// ============================================================================
 
-    // Add authorization token if exists
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+api.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    // Only access localStorage in browser environment
+    if (typeof window !== 'undefined') {
+      // Get current company ID from localStorage
+      const companyId = localStorage.getItem('selectedCompanyId')
+
+      // Add authorization token if exists
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+
+      // Add companyId to query params if exists
+      if (companyId) {
+        // Parse existing URL to properly handle query params
+        const separator = config.url?.includes('?') ? '&' : '?'
+
+        // Don't add companyId to auth endpoints or if already present
+        const skipEndpoints = ['/auth', '/login', '/register', '/companies', '/health']
+        const shouldSkip = skipEndpoints.some(endpoint => config.url?.includes(endpoint))
+        const hasCompanyId = config.url?.includes('companyId=')
+
+        if (!shouldSkip && !hasCompanyId) {
+          config.url = `${config.url}${separator}companyId=${companyId}`
+        }
+      }
     }
 
-    // Add companyId to query params if exists
-    if (companyId) {
-      // Parse existing URL to properly handle query params
-      const separator = config.url?.includes('?') ? '&' : '?'
-
-      // Don't add companyId to auth endpoints or if already present
-      const skipEndpoints = ['/auth', '/login', '/register', '/companies']
-      const shouldSkip = skipEndpoints.some(endpoint => config.url?.includes(endpoint))
-      const hasCompanyId = config.url?.includes('companyId=')
-
-      if (!shouldSkip && !hasCompanyId) {
-        config.url = `${config.url}${separator}companyId=${companyId}`
-      }
+    // Log request in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📤 ${config.method?.toUpperCase()} ${config.url}`)
     }
 
     return config
   },
-  (error) => {
+  (error: AxiosError) => {
+    console.error('❌ Request interceptor error:', error.message)
     return Promise.reject(error)
   }
 )
 
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Handle 401 Unauthorized
-    if (error.response?.status === 401) {
-      // Clear auth data and redirect to login
-      localStorage.removeItem('token')
-      localStorage.removeItem('selectedCompanyId')
+// ============================================================================
+// RESPONSE INTERCEPTOR - Error Handling & Auto-Retry
+// ============================================================================
 
-      // Only redirect if not already on login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
+let isRefreshing = false
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void
+  reject: (reason?: unknown) => void
+}> = []
+
+const processQueue = (error: AxiosError | null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve()
+    }
+  })
+
+  failedQueue = []
+}
+
+api.interceptors.response.use(
+  (response) => {
+    // Log successful response in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`)
+    }
+    return response
+  },
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+
+    // Handle network errors
+    if (!error.response) {
+      console.error('❌ Network error:', error.message)
+      toast.error('Erro de conexão com o servidor. Verifique sua internet.')
+      return Promise.reject(error)
+    }
+
+    const { status, data } = error.response
+
+    // Handle 401 Unauthorized - Token expired or invalid
+    if (status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue this request while token is being refreshed
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        })
+          .then(() => api(originalRequest))
+          .catch(err => Promise.reject(err))
       }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken')
+
+        if (!refreshToken) {
+          throw new Error('No refresh token available')
+        }
+
+        // Attempt to refresh token
+        const response = await axios.post(`${API_URL.replace('/api', '')}/api/auth/refresh`, {
+          refreshToken
+        })
+
+        const { accessToken } = response.data.tokens
+
+        // Update token
+        localStorage.setItem('token', accessToken)
+        api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`
+
+        processQueue(null)
+        isRefreshing = false
+
+        // Retry original request
+        return api(originalRequest)
+      } catch (refreshError) {
+        processQueue(error)
+        isRefreshing = false
+
+        // Clear auth data and redirect to login (only in browser)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('selectedCompanyId')
+
+          // Only redirect if not already on login page
+          if (!window.location.pathname.includes('/login')) {
+            toast.error('Sessão expirada. Faça login novamente.')
+            window.location.href = '/login'
+          }
+        }
+
+        return Promise.reject(refreshError)
+      }
+    }
+
+    // Handle 403 Forbidden
+    if (status === 403) {
+      console.error('❌ Forbidden:', error.response.data)
+      toast.error('Você não tem permissão para acessar este recurso.')
+    }
+
+    // Handle 404 Not Found
+    if (status === 404) {
+      console.error('❌ Not found:', originalRequest.url)
+      toast.error('Recurso não encontrado.')
+    }
+
+    // Handle 500 Internal Server Error
+    if (status === 500) {
+      console.error('❌ Server error:', error.response.data)
+      toast.error('Erro interno do servidor. Tente novamente mais tarde.')
+    }
+
+    // Handle 503 Service Unavailable
+    if (status === 503) {
+      console.error('❌ Service unavailable')
+      toast.error('Serviço temporariamente indisponível.')
+    }
+
+    // Log all errors in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`❌ ${status} - ${originalRequest.method?.toUpperCase()} ${originalRequest.url}`, data)
     }
 
     return Promise.reject(error)

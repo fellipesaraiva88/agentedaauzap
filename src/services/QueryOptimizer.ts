@@ -191,23 +191,21 @@ export class QueryOptimizer {
 
     try {
       // Executar em transação para melhor performance
-      await this.postgres.beginTransaction();
+      await this.postgres.transaction(async (client) => {
+        const results = await Promise.all(
+          batch.queries.map(q =>
+            client.query(q.sql, q.params)
+          )
+        );
 
-      const results = await Promise.all(
-        batch.queries.map(q =>
-          this.postgres.query(q.sql, q.params)
-        )
-      );
+        // Resolver promises
+        batch.queries.forEach((q, i) => {
+          q.resolver(results[i]);
+        });
 
-      await this.postgres.commitTransaction();
-
-      // Resolver promises
-      batch.queries.forEach((q, i) => {
-        q.resolver(results[i]);
+        return results;
       });
     } catch (error) {
-      await this.postgres.rollbackTransaction();
-
       // Rejeitar todas as promises
       batch.queries.forEach(q => {
         q.rejecter(error);

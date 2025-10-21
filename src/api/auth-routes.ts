@@ -43,11 +43,33 @@ export function createAuthRoutes(db: Pool) {
         });
       }
 
-      // Validar força da senha (mínimo 6 caracteres)
-      if (password.length < 6) {
+      // Validar força da senha (mínimo 12 caracteres com requisitos)
+      if (password.length < 12) {
         return res.status(400).json({
           error: 'Validation error',
-          message: 'Password must be at least 6 characters long'
+          message: 'Password must be at least 12 characters long'
+        });
+      }
+
+      // Verificar complexidade da senha
+      const hasUpperCase = /[A-Z]/.test(password);
+      const hasLowerCase = /[a-z]/.test(password);
+      const hasNumbers = /\d/.test(password);
+      const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+        });
+      }
+
+      // Verificar senha comum/fraca
+      const commonPasswords = ['Password123!', 'Admin123!', 'Welcome123!', 'Qwerty123!'];
+      if (commonPasswords.some(common => password.toLowerCase().includes(common.toLowerCase()))) {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Password is too common. Please choose a stronger password'
         });
       }
 
