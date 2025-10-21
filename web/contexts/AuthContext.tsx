@@ -60,7 +60,7 @@ const TOKEN_EXPIRY_KEY = 'token_expiry'
 
 // Security: Configure axios instance with security best practices
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
   timeout: 30000,
   headers: SECURITY_HEADERS,
   withCredentials: true, // Enable CORS with credentials
@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
 
       // Make login request
-      const response = await api.post<LoginResponse>('/auth/login', {
+      const response = await api.post<LoginResponse>('/api/auth/login', {
         email: email.toLowerCase().trim(),
         password,
       })
@@ -255,7 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
 
       // Call logout endpoint to invalidate server-side session
-      await api.post('/auth/logout').catch((error) => {
+      await api.post('/api/auth/logout').catch((error) => {
         // Log error but continue with client-side logout
         console.error('Server logout error:', error)
       })
@@ -306,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch user data from server
-      const response = await api.get<{ user: User }>('/auth/me')
+      const response = await api.get<{ user: User }>('/api/auth/me')
 
       if (response.data?.user) {
         setUser(response.data.user)
