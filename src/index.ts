@@ -230,7 +230,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const allowedOrigins = [
   'http://localhost:3001',
   'http://localhost:3000',
-  'https://agentedaauzap-web.onrender.com', // Production frontend
+  'https://agentedaauzap-web.onrender.com', // Production frontend (old)
+  'https://agentedaauzap-frontend.onrender.com', // Production frontend (current)
 ];
 
 // Add custom origin from env if provided
