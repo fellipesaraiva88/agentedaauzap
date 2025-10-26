@@ -58,7 +58,7 @@ export function ReviewStep({ progress, onComplete, onBack, saving }: ReviewStepP
                       {data.differentiation.uniqueValueProposition}
                     </p>
                   )}
-                  {data.differentiation.competitiveDifferentiators && (
+                  {data.differentiation.competitiveDifferentiators && data.differentiation.competitiveDifferentiators.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {data.differentiation.competitiveDifferentiators.map((diff, i) => (
                         <Badge key={i} variant="secondary">{diff}</Badge>
