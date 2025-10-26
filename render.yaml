@@ -40,8 +40,9 @@ services:
     name: agentedaauzap-web
     env: static
     region: oregon
-    buildCommand: cd web && npm install && npm run build
-    staticPublishPath: web/out
+    rootDir: web
+    buildCommand: npm install && npm run build
+    staticPublishPath: out
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://agentedaauzap-api.onrender.com/api
